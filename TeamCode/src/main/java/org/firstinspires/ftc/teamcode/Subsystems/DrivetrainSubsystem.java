@@ -1,168 +1,153 @@
-//package org.firstinspires.ftc.teamcode.Subsystems;
-//
-//import com.pedropathing.follower.Follower;
-//import com.pedropathing.geometry.Pose;
-//import com.pedropathing.paths.PathBuilder;
-//import com.qualcomm.robotcore.hardware.HardwareMap;
-//import com.seattlesolvers.solverslib.command.SubsystemBase;
-//import com.seattlesolvers.solverslib.controller.PIDController;
-//import com.seattlesolvers.solverslib.util.MathUtils;
-//
-//
-//import org.firstinspires.ftc.robotcore.external.Telemetry;
-//import org.firstinspires.ftc.teamcode.PedroPathing.Constants;
-//
-///**
-// * Drivetrain subsystem. Encapsulates the details of how the drivetrain works.
-// */
-//public class DrivetrainSubsystem extends SubsystemBase {
-//
-//    private final Follower follower;
-//    private Pose currentPose = new Pose();
-//
-//    private final PIDController xController = new PIDController(0.07, 0.0, 0.0);
-//    private final PIDController yController = new PIDController(0.07, 0.0, 0.0);
-//    private final PIDController headingController = new PIDController(0.2, 0.0, 0.0);
-//
-//    private final double headingDeadzoneRad = Math.toRadians(2.0);
-//
-//    public DrivetrainSubsystem(HardwareMap hardwareMap) {
-//        follower = Constants.createFollower(hardwareMap);
-//        follower.update();
-//    }
-//
-//    /**
-//     * Drive the robot in field centric manner. This function also squares the inputs for better
-//     * fine control.
-//     * @param translationX robot strafe along the X axis in range [-1, 1]. The X axis runs along the
-//     *                     field perimeter on the audience side. The robot is facing the positive
-//     *                     X direction when it has a heading of 0 radians (0°)
-//     * @param translationY robot speed along the Y axis in range [-1, 1]. The Y axis runs along the
-//     *                     field perimeter on the red alliance side. The robot is facing the
-//     *                     positive Y direction when it has a heading of 1/2 PI radians (90°).
-//     * @param rotation robot rotation speed in range of [-1, 1]. Counterclockwise positive
-//     * @param reductionFactor value to multiply the speed parameters by in range [0, 1]
-//     */
-//    public void drive(double translationX, double translationY, double rotation, double reductionFactor) {
-//        double clampedReduction = MathUtils.clamp(reductionFactor, 0.0, 1.0);
-//
-//        // Square and reduce the axes
-//        double modifiedY = square(translationY) * clampedReduction;
-//        double modifiedX = square(translationX) * clampedReduction;
-//        double modifiedRotation = square(rotation * clampedReduction);
-//
-//        follower.setTeleOpDrive(modifiedX, modifiedY, modifiedRotation, false);
-//    }
-//
-//    /**
-//     * Drive the robot robot centric manner. This method is useful for autonomous control.
-//     * @param translationX robot strafe along the X axis in range [-1, 1]
-//     * @param translationY robot speed along the Y axis in range [-1, 1]
-//     * @param rotation robot rotation speed in range of [-1, 1]
-//     */
-//    public void driveRobotCentric(double translationX, double translationY, double rotation) {
-//        follower.setTeleOpDrive(translationX, translationY, rotation, true);
-//    }
-//
-//    public void startTeleop() {
-//        follower.startTeleopDrive();
-//        follower.setMaxPower(1);
-//    }
-//
-//    /**
-//     * Stops the drivetrain.
-//     */
-//    public void stop() {
-//        startTeleop();
-//        follower.setTeleOpDrive(0.0, 0.0, 0.0, false);
-//    }
-//
-//    /**
-//     * Returns a new PedroPath PathBuilder.
-//     * @return new path builder
-//     */
-//    public PathBuilder pathBuilder() {
-//        return follower.pathBuilder();
-//    }
-//
-//    /**
-//     * Resets localization to the origin.
-//     */
-//    public void resetLocalization() {
-//        Pose resetPose = new Pose();
-//        follower.setStartingPose(resetPose);
-//        follower.setPose(resetPose);
-//    }
-//
-//    @Override
-//    public void periodic() {
-//        // Because this calls the OTOS, we can assume it is a blocking call that can take tens of
-//        // milliseconds, so only do it once per period
-//        follower.update();
-//        currentPose = follower.getPose();
-//    }
-//
-//    public Follower getFollower() {
-//        return follower;
-//    }
-//
-//    /**
-//     * Adds drivetrain telemetry data.
-//     * @param telemetry telemetry object
-//     */
-//    public void telemetrize(Telemetry telemetry) {
-//        telemetry.addData("X coordinate (mm)", currentPose.getX());
-//        telemetry.addData("Y coordinate (mm)", currentPose.getY());
-//        telemetry.addData("Heading angle (degrees)", Math.toDegrees(currentPose.getHeading()));
-//    }
-//
-//    public static double square(double value) {
-//        return Math.copySign(value * value, value);
-//    }
-//
-//    /**
-//     * Returns the current estimated pose of the robot.
-//     * @return current pose
-//     */
-//    public Pose getCurrentPose() {
-//        return currentPose;
-//    }
-//
-//    /**
-//     * Holds the robot at a specific position using probably pid or something i guess
-//     * @param targetPose the target position to hold, use Pose2d targetPosition = new Pose2d(currentPose); to get correct format
-//     */
-//    public void holdPosition(Pose targetPose) {
-//        Pose cur = getCurrentPose();
-//
-//        double xError = targetPose.getX() - cur.getX();
-//        double yError = targetPose.getY() - cur.getY();
-//        double headingError = angleWrap(targetPose.getHeading() - cur.getHeading());
-//
-//        double distanceError = Math.hypot(xError, yError);
-//
-//        double positionDeadzoneMm = 10.0;
-//        if (distanceError <= positionDeadzoneMm && Math.abs(headingError) <= headingDeadzoneRad) {
-//            follower.setTeleOpDrive(0.0, 0.0, 0.0, false);
-//            return;
-//        }
-//
-//        double xPower = xController.calculate(cur.getX(), targetPose.getX());
-//        double yPower = yController.calculate(cur.getY(), targetPose.getY());
-//        double turnPower = headingController.calculate(cur.getHeading(), targetPose.getHeading());
-//
-//        follower.setTeleOpDrive(xPower, yPower, turnPower, false);
-//    }
-//
-//    /**
-//     * angleWrap is broken so were bringing our own
-//     * @param angle angle in radians
-//     * @return wrapped angle in radians between -PI and PI
-//     */
-//    public static double angleWrap(double angle) {
-//        while (angle <= -Math.PI) angle += 2 * Math.PI;
-//        while (angle > Math.PI) angle -= 2 * Math.PI;
-//        return angle;
-//    }
-//
-//}
+package org.firstinspires.ftc.teamcode.Subsystems;
+
+import com.pedropathing.drivetrain.DrivePowers;
+import com.pedropathing.follower.Follower;
+import com.pedropathing.follower.ManualDrive;
+import com.pedropathing.math.Pose;
+import com.pedropathing.paths.Path;
+import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.util.Range;
+import com.seattlesolvers.solverslib.command.SubsystemBase;
+
+import org.firstinspires.ftc.robotcore.external.Telemetry;
+import org.firstinspires.ftc.teamcode.pedro.Constants;
+
+/**
+ * Mecanum drivetrain localized with a SparkFun OTOS, driven through the Pedro Pathing Follower.
+ *
+ * All distances are in inches and all angles are in radians (see {@link Constants}).
+ * Drive inputs follow Pedro's convention: forward is +, left is +, counterclockwise is +. From a
+ * gamepad that's usually {@code drive(-left_stick_y, -left_stick_x, -right_stick_x)}.
+ */
+public class DrivetrainSubsystem extends SubsystemBase {
+
+    private final Follower follower;
+
+    private double driverForwardHeading = 0.0;
+
+    public DrivetrainSubsystem(HardwareMap hardwareMap) {
+        this(hardwareMap, Pose.zero());
+    }
+
+    public DrivetrainSubsystem(HardwareMap hardwareMap, Pose startPose) {
+        follower = Constants.createFollower(hardwareMap);
+        follower.setPose(startPose);
+        driverForwardHeading = startPose.heading();
+    }
+
+    @Override
+    public void periodic() {
+        follower.update();
+    }
+
+    /**
+     * Field centric drive. Inputs are squared for finer control at low speeds (tbd if we keep squared).
+     * @param forward speed away from the driver in range [-1, 1]
+     * @param strafe speed to the driver's left in range [-1, 1]
+     * @param turn rotation speed in range [-1, 1], counterclockwise positive
+     * @param speedScale multiplier on all axes in range [0, 1], useful for a slow mode
+     */
+    public void drive(double forward, double strafe, double turn, double speedScale) {
+        DrivePowers powers = scaledPowers(forward, strafe, turn, speedScale);
+        follower.manual(ManualDrive.fieldCentric(powers, heading() - driverForwardHeading));
+    }
+
+    public void drive(double forward, double strafe, double turn) {
+        drive(forward, strafe, turn, 1.0);
+    }
+
+    /**
+     * Robot centric drive. Inputs are squared for finer control at low speeds (just don't use this).
+     * @param forward speed toward the front of the robot in range [-1, 1]
+     * @param strafe speed toward the left of the robot in range [-1, 1]
+     * @param turn rotation speed in range [-1, 1], counterclockwise positive
+     * @param speedScale multiplier on all axes in range [0, 1]
+     */
+    public void driveRobotCentric(double forward, double strafe, double turn, double speedScale) {
+        follower.manual(scaledPowers(forward, strafe, turn, speedScale));
+    }
+
+    public void driveRobotCentric(double forward, double strafe, double turn) {
+        driveRobotCentric(forward, strafe, turn, 1.0);
+    }
+
+    /**
+     * Makes whatever direction the robot is currently facing "forward" for field centric driving.
+     */
+    public void resetFieldCentric() {
+        driverForwardHeading = heading();
+    }
+
+    /**
+     * Starts following a path. Build paths with {@code com.pedropathing.api.Paths.line/curve}.
+     */
+    public void followPath(Path path) {
+        follower.follow(path);
+    }
+
+    /**
+     * Actively holds the robot at a pose.
+     */
+    public void holdPose(Pose pose) {
+        follower.hold(pose);
+    }
+
+    public void holdCurrentPose() {
+        follower.hold(pose());
+    }
+
+    /**
+     * Cuts drive power and drops whatever the follower was doing.
+     */
+    public void stop() {
+        follower.stop();
+    }
+
+    /**
+     * @return true while following a path, useful for ending auto commands
+     */
+    public boolean isBusy() {
+        return follower.isBusy();
+    }
+
+    public Pose pose() {
+        return follower.pose();
+    }
+
+    public double heading() {
+        return follower.pose().heading();
+    }
+
+    /**
+     * Overwrites the localizer's pose. Use at the start of auto or to relocalize.
+     */
+    public void setPose(Pose pose) {
+        follower.setPose(pose);
+    }
+
+    public void resetPose() {
+        setPose(Pose.zero());
+        driverForwardHeading = 0.0;
+    }
+
+    public Follower getFollower() {
+        return follower;
+    }
+
+    public void telemetrize(Telemetry telemetry) {
+        Pose pose = pose();
+        telemetry.addData("Drive mode", follower.mode());
+        telemetry.addData("X (in)", "%.2f", pose.x());
+        telemetry.addData("Y (in)", "%.2f", pose.y());
+        telemetry.addData("Heading (deg)", "%.1f", Math.toDegrees(pose.heading()));
+    }
+
+    private static DrivePowers scaledPowers(double forward, double strafe, double turn, double speedScale) {
+        double scale = Range.clip(speedScale, 0.0, 1.0);
+        return new DrivePowers(square(forward) * scale, square(strafe) * scale, square(turn) * scale);
+    }
+
+    private static double square(double value) {
+        return Math.copySign(value * value, value);
+    }
+}
