@@ -47,21 +47,13 @@ public class DrivetrainSubsystem extends SubsystemBase {
      * @param turn rotation speed in range [-1, 1], counterclockwise positive
      * @param speedScale multiplier on all axes in range [0, 1], useful for a slow mode
      */
-    public void driveSquared(double forward, double strafe, double turn, double speedScale) {
+    public void drive(double forward, double strafe, double turn, double speedScale) {
         DrivePowers powers = scaledPowers(forward, strafe, turn, speedScale);
         follower.manual(ManualDrive.fieldCentric(powers, heading() - driverForwardHeading));
     }
 
-    public void drive(double forward, double strafe, double turn, double speedScale) {
-        follower.manual(ManualDrive.fieldCentric(new DrivePowers(forward * speedScale, strafe * speedScale, turn * speedScale), heading() - driverForwardHeading));
-    }
-
     public void drive(double forward, double strafe, double turn) {
         drive(forward, strafe, turn, 1.0);
-    }
-
-    public void driveSquared(double forward, double strafe, double turn) {
-        driveSquared(forward, strafe, turn, 1.0);
     }
 
     /**
