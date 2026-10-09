@@ -8,6 +8,7 @@ import com.seattlesolvers.solverslib.gamepad.GamepadEx;
 import com.seattlesolvers.solverslib.gamepad.GamepadKeys;
 
 import org.firstinspires.ftc.teamcode.Commands.DriveCommand;
+import org.firstinspires.ftc.teamcode.Commands.IdleCommand;
 import org.firstinspires.ftc.teamcode.Commands.IntakeCommand;
 import org.firstinspires.ftc.teamcode.Commands.ShootCommand;
 import org.firstinspires.ftc.teamcode.Subsystems.DrivetrainSubsystem;
@@ -21,6 +22,7 @@ public class ChunkMode extends CommandOpMode {
     private DrivetrainSubsystem drivetrainSubsystem;
     private ShooterSubsystem shooterSubsystem;
     private IntakeSubsystem intakeSubsystem;
+    private IdleCommand idleCommand;
 
     private GamepadEx gamepad;
 
@@ -28,8 +30,11 @@ public class ChunkMode extends CommandOpMode {
 
     @Override
     public void initialize() {
+        shooterSubsystem = new ShooterSubsystem(hardwareMap);
         drivetrainSubsystem = new DrivetrainSubsystem(hardwareMap);
         intakeSubsystem = new IntakeSubsystem(hardwareMap);
+
+        idleCommand = new IdleCommand(intakeSubsystem, shooterSubsystem);
 
         // Gamepad
         gamepad = new GamepadEx(gamepad1);
@@ -60,6 +65,8 @@ public class ChunkMode extends CommandOpMode {
 
         // Default commands
         drivetrainSubsystem.setDefaultCommand(teleopDriveCommand);
+//        shooterSubsystem.setDefaultCommand(idleCommand);
+//        intakeSubsystem.setDefaultCommand(idleCommand);
 
         configureButtonBindings();
     }

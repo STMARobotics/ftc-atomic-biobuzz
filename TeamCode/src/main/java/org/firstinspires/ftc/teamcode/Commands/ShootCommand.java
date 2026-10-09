@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.Commands;
 
+import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.seattlesolvers.solverslib.command.CommandBase;
 
 import org.firstinspires.ftc.teamcode.Subsystems.IntakeSubsystem;
@@ -25,15 +26,10 @@ public class ShootCommand extends CommandBase {
 
     @Override
     public void execute() {
-        shooterSubsystem.setRPM(4000);
+        shooterSubsystem.setRPM(2000);
         if (shooterSubsystem.flywheelReady()) {
             intakeSubsystem.runIntake();
         }
-    }
-
-    @Override
-    public boolean isFinished() {
-        return true;
     }
 
     @Override

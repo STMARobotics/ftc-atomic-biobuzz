@@ -1,23 +1,28 @@
 package org.firstinspires.ftc.teamcode.Subsystems;
 
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.seattlesolvers.solverslib.command.SubsystemBase;
-
-import org.firstinspires.ftc.robotcore.external.Telemetry;
 
 
 public class IntakeSubsystem extends SubsystemBase {
 
-    private double targetRPM;
     private final DcMotorEx intakeMotor;
+    private double targetRPM;
+    private double targetTPS;
 
     public IntakeSubsystem(HardwareMap hardwareMap) {
-        intakeMotor = hardwareMap.get(DcMotorEx.class, "flywheelMotor");
+        intakeMotor = hardwareMap.get(DcMotorEx.class, "intakeMotor");
+
+        intakeMotor.setDirection(DcMotorSimple.Direction.REVERSE);
     }
 
     public void runIntake() {
-        intakeMotor.setVelocity((double) 250 /28*60);
+//        targetRPM = 290;
+//        targetTPS = (targetRPM * 28) / 60;
+//        intakeMotor.setVelocity(targetTPS);
+        intakeMotor.setPower(1);
     }
 
     public void stopIntake() {
