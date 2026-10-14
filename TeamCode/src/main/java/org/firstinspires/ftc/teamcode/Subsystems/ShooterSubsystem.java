@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.Subsystems;
 
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.seattlesolvers.solverslib.command.SubsystemBase;
 
@@ -19,6 +20,8 @@ public class ShooterSubsystem extends SubsystemBase {
         flywheelMotor1 = hardwareMap.get(DcMotorEx.class, "flywheelMotor1");
         flywheelMotor2 = hardwareMap.get(DcMotorEx.class, "flywheelMotor2");
 
+        flywheelMotor2.setDirection(DcMotorSimple.Direction.REVERSE);
+
         flywheelMotor1.setVelocityPIDFCoefficients(1000, 0, 0, 100);
         flywheelMotor2.setVelocityPIDFCoefficients(1000, 0, 0, 100);
     }
@@ -30,8 +33,8 @@ public class ShooterSubsystem extends SubsystemBase {
     public void setRPM(double RPM) {
         targetRPM = RPM;
         targetTPS = (targetRPM * 28) / 60;
-        flywheelMotor1.setPower(1);
-        flywheelMotor2.setPower(1);
+        flywheelMotor1.setVelocity(targetTPS);
+        flywheelMotor2.setVelocity(targetTPS);
     }
 
     /**

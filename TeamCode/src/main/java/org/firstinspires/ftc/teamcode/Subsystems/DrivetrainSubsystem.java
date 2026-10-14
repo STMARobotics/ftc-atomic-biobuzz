@@ -144,7 +144,7 @@ public class DrivetrainSubsystem extends SubsystemBase {
 
     private static DrivePowers scaledPowers(double forward, double strafe, double turn, double speedScale) {
         double scale = Range.clip(speedScale, 0.0, 1.0);
-        return new DrivePowers(square(forward) * scale, square(strafe) * scale, square(turn) * scale);
+        return new DrivePowers(forward * scale, strafe * scale, turn * scale);
     }
 
     private static double square(double value) {
