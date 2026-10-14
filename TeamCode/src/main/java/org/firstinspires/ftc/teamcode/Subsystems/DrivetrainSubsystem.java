@@ -7,7 +7,6 @@ import com.pedropathing.math.Pose;
 import com.pedropathing.paths.Path;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.util.Range;
-import com.seattlesolvers.solverslib.command.SubsystemBase;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
@@ -18,8 +17,12 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
  * All distances are in inches and all angles are in radians (see {@link Constants}).
  * Drive inputs follow Pedro's convention: forward is +, left is +, counterclockwise is +. From a
  * gamepad that's usually {@code drive(-left_stick_y, -left_stick_x, -right_stick_x)}.
+ *
+ * The drivetrain is commanded directly by the OpMode or auto, not by the superstructure, so driving
+ * and scoring stay independent (no "drive while intaking" combo states).
+ * The Pedro Follower is already a state machine of its own: MANUAL, FOLLOW, HOLD or IDLE.
  */
-public class DrivetrainSubsystem extends SubsystemBase {
+public class DrivetrainSubsystem implements Subsystem {
 
     private final Follower follower;
 
@@ -36,7 +39,13 @@ public class DrivetrainSubsystem extends SubsystemBase {
     }
 
     @Override
-    public void periodic() {
+    public void readInputs() {
+        // Nothing to do here. follower.update() in writeOutputs() reads the OTOS and drives in one
+        // call, so pose() is always from the end of the previous loop.
+    }
+
+    @Override
+    public void writeOutputs() {
         follower.update();
     }
 
@@ -104,7 +113,7 @@ public class DrivetrainSubsystem extends SubsystemBase {
     }
 
     /**
-     * @return true while following a path, useful for ending auto commands
+     * @return true while following a path, useful for auto state transitions
      */
     public boolean isBusy() {
         return follower.isBusy();
@@ -134,6 +143,7 @@ public class DrivetrainSubsystem extends SubsystemBase {
         return follower;
     }
 
+    @Override
     public void telemetrize(Telemetry telemetry) {
         Pose pose = pose();
         telemetry.addData("Drive mode", follower.mode());

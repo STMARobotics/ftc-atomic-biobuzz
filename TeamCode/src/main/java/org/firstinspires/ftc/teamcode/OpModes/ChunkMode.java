@@ -1,73 +1,59 @@
 package org.firstinspires.ftc.teamcode.OpModes;
 
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.seattlesolvers.solverslib.command.CommandOpMode;
-import com.seattlesolvers.solverslib.command.InstantCommand;
-import com.seattlesolvers.solverslib.command.RunCommand;
-import com.seattlesolvers.solverslib.command.button.Trigger;
-import com.seattlesolvers.solverslib.gamepad.GamepadEx;
-import com.seattlesolvers.solverslib.gamepad.GamepadKeys;
-import com.seattlesolvers.solverslib.gamepad.TriggerReader;
 
-import org.firstinspires.ftc.teamcode.Commands.DriveCommand;
-import org.firstinspires.ftc.teamcode.Subsystems.DrivetrainSubsystem;
+import org.firstinspires.ftc.teamcode.Constants;
+import org.firstinspires.ftc.teamcode.Robot;
+import org.firstinspires.ftc.teamcode.Superstructure.WantedState;
 
+/**
+ * Driver controls (gamepad 1):
+ * <ul>
+ *     <li>Left stick: drive (field centric), right stick X: turn</li>
+ *     <li>Right trigger (hold): shoot. Spins up, then feeds whenever the flywheel is at speed</li>
+ *     <li>Left trigger (hold): intake</li>
+ *     <li>Start: make the direction the robot is facing "forward"</li>
+ * </ul>
+ * Holding both triggers shoots. That priority is decided in {@link #wantedStateFromDriver()}.
+ */
 @TeleOp(name = "ChunkMode", group = "TeleOp")
-public class ChunkMode extends CommandOpMode {
-
-    // Subsystems
-    private DrivetrainSubsystem drivetrainSubsystem;
-
-    private GamepadEx gamepad;
-    private TriggerReader leftTriggerReader;
-    private TriggerReader rightTriggerReader;
-
-    private double driveScale = 1;
+public class ChunkMode extends LinearOpMode {
 
     @Override
-    public void initialize() {
-        drivetrainSubsystem = new DrivetrainSubsystem(hardwareMap);
+    public void runOpMode() {
+        Robot robot = new Robot(hardwareMap);
 
-        // Gamepad
-        gamepad = new GamepadEx(gamepad1);
-        leftTriggerReader  = new TriggerReader(gamepad, GamepadKeys.Trigger.LEFT_TRIGGER);
-        rightTriggerReader = new TriggerReader(gamepad, GamepadKeys.Trigger.RIGHT_TRIGGER);
+        telemetry.addLine("Ready");
+        telemetry.update();
+        waitForStart();
 
-        // Drive command
-        DriveCommand teleopDriveCommand = new DriveCommand(
-                drivetrainSubsystem,
-                () -> -gamepad1.left_stick_y,
-                () -> -gamepad1.left_stick_x,
-                () -> -gamepad1.right_stick_x,
-                () -> driveScale
-        );
+        while (opModeIsActive()) {
+            // 1. Read every sensor once
+            robot.readInputs();
 
-        // Telemetry
-        RunCommand telemetryCommand = new RunCommand(() -> {
-            telemetry.addData("|-----|Drivetrain Telemetry|-----|", "");
-            drivetrainSubsystem.telemetrize(telemetry);
+            // 2. Turn driver inputs into wanted states
+            if (gamepad1.startWasPressed()) {
+                robot.drivetrain.resetFieldCentric();
+            }
+            robot.drivetrain.drive(-gamepad1.left_stick_y, -gamepad1.left_stick_x, -gamepad1.right_stick_x);
+            robot.superstructure.setWantedState(wantedStateFromDriver());
+
+            // 3 + 4. Superstructure decides, subsystems write to hardware
+            robot.update();
+
+            robot.telemetrize(telemetry);
             telemetry.update();
-        });
-        schedule(telemetryCommand);
-
-        // Register subsystems
-        register(
-                drivetrainSubsystem
-        );
-
-        // Default commands
-        drivetrainSubsystem.setDefaultCommand(teleopDriveCommand);
-
-        configureButtonBindings();
+        }
     }
 
-    private void configureButtonBindings() {
-        // Reset field-centric
-        gamepad.getGamepadButton(GamepadKeys.Button.START)
-                .whenPressed(drivetrainSubsystem::resetFieldCentric);
-    }
-
-    private void toggleDriveScale() {
-        driveScale = (driveScale == 1) ? 0.5 : 1;
+    private WantedState wantedStateFromDriver() {
+        if (gamepad1.right_trigger > Constants.Driver.TRIGGER_THRESHOLD) {
+            return WantedState.SHOOT;
+        }
+        if (gamepad1.left_trigger > Constants.Driver.TRIGGER_THRESHOLD) {
+            return WantedState.INTAKE;
+        }
+        return WantedState.IDLE;
     }
 }
