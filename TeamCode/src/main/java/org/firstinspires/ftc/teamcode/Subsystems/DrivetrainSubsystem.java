@@ -25,6 +25,11 @@ public class DrivetrainSubsystem extends SubsystemBase {
 
     private double driverForwardHeading = 0.0;
 
+    private enum Alliance {
+        BLUE,
+        RED
+    }
+
     public DrivetrainSubsystem(HardwareMap hardwareMap) {
         this(hardwareMap, Pose.zero());
     }
@@ -78,6 +83,22 @@ public class DrivetrainSubsystem extends SubsystemBase {
         driverForwardHeading = heading();
     }
 
+    public void aimAtHive() {
+        Pose pose = follower.pose();
+        Pose hiveLeft = new Pose(83, 85, 0);
+        Pose hiveRight = new Pose(83, 55, 0);
+        Pose holdLeft = new Pose(pose.x(), pose.y(), angleToTarget(pose, hiveLeft));
+        Pose holdRight = new Pose(pose.x(), pose.y(), angleToTarget(pose, hiveRight));
+        if (pose.x() >= 72) {
+            follower.hold(holdRight);
+        } else {
+            follower.hold(holdLeft);
+        }
+    }
+
+    private double angleToTarget(Pose robotPose, Pose targetPose) {
+        return Math.acos((targetPose.x()-robotPose.x())/robotPose.distance(targetPose));
+    }
     /**
      * Starts following a path. Build paths with {@code com.pedropathing.api.Paths.line/curve}.
      */

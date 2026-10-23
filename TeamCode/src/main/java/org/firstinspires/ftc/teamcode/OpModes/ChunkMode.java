@@ -2,6 +2,8 @@ package org.firstinspires.ftc.teamcode.OpModes;
 
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.seattlesolvers.solverslib.command.CommandOpMode;
+import com.seattlesolvers.solverslib.command.InstantCommand;
+import com.seattlesolvers.solverslib.command.ParallelCommandGroup;
 import com.seattlesolvers.solverslib.command.RunCommand;
 import com.seattlesolvers.solverslib.command.button.Trigger;
 import com.seattlesolvers.solverslib.gamepad.GamepadEx;
@@ -80,7 +82,11 @@ public class ChunkMode extends CommandOpMode {
         Trigger shootTrigger = new Trigger(() -> gamepad.getTrigger(GamepadKeys.Trigger.RIGHT_TRIGGER) > 0.1);
 
         shootTrigger.whileActiveContinuous(
-                new ShootCommand(shooterSubsystem, intakeSubsystem));
+                new ParallelCommandGroup(
+                        new ShootCommand(shooterSubsystem, intakeSubsystem),
+                        new InstantCommand(drivetrainSubsystem::aimAtHive)
+                ));
+
 
         // Intake stuff
         Trigger intakeTrigger = new Trigger(() -> gamepad.getTrigger(GamepadKeys.Trigger.LEFT_TRIGGER) > 0.1);
