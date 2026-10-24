@@ -44,6 +44,11 @@ public class DriveCommand extends CommandBase {
     }
 
     @Override
+    public void initialize() {
+        drivetrain.resetFieldCentric();
+    }
+
+    @Override
     public void execute() {
         drivetrain.drive(
                 forward.getAsDouble(),
