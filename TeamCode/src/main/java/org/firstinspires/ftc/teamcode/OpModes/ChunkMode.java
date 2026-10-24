@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.OpModes;
 
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.Gamepad;
 import com.seattlesolvers.solverslib.command.CommandOpMode;
 import com.seattlesolvers.solverslib.command.InstantCommand;
 import com.seattlesolvers.solverslib.command.ParallelCommandGroup;
@@ -12,6 +13,7 @@ import com.seattlesolvers.solverslib.gamepad.GamepadKeys;
 import org.firstinspires.ftc.teamcode.Commands.DriveCommand;
 import org.firstinspires.ftc.teamcode.Commands.IdleCommand;
 import org.firstinspires.ftc.teamcode.Commands.IntakeCommand;
+import org.firstinspires.ftc.teamcode.Commands.OuttakeCommand;
 import org.firstinspires.ftc.teamcode.Commands.ShootCommand;
 import org.firstinspires.ftc.teamcode.Subsystems.DrivetrainSubsystem;
 import org.firstinspires.ftc.teamcode.Subsystems.IntakeSubsystem;
@@ -86,6 +88,15 @@ public class ChunkMode extends CommandOpMode {
                         new ShootCommand(shooterSubsystem, intakeSubsystem),
                         new InstantCommand(drivetrainSubsystem::aimAtHive)
                 ));
+
+        gamepad.getGamepadButton(GamepadKeys.Button.LEFT_BUMPER)
+                .whileActiveContinuous(new OuttakeCommand(intakeSubsystem));
+//
+//        Trigger aimTrigger = new Trigger(() -> gamepad.getTrigger(GamepadKeys.Trigger.LEFT_TRIGGER) > 0.1);
+//
+//        aimTrigger.whileActiveContinuous(
+//                new
+//        )
 
 
         // Intake stuff

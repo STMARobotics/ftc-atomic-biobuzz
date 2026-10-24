@@ -26,7 +26,7 @@ public class ShootCommand extends CommandBase {
 
     @Override
     public void execute() {
-        shooterSubsystem.setRPM(2910);
+        shooterSubsystem.setRPM(3276);
         if (shooterSubsystem.flywheelReady()) {
             intakeSubsystem.runIntake();
         }

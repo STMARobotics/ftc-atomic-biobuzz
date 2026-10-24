@@ -81,6 +81,7 @@ public class DrivetrainSubsystem extends SubsystemBase {
      */
     public void resetFieldCentric() {
         driverForwardHeading = heading();
+        resetPose();
     }
 
     public void aimAtHive() {
@@ -89,11 +90,7 @@ public class DrivetrainSubsystem extends SubsystemBase {
         Pose hiveRight = new Pose(83, 55, 0);
         Pose holdLeft = new Pose(pose.x(), pose.y(), angleToTarget(pose, hiveLeft));
         Pose holdRight = new Pose(pose.x(), pose.y(), angleToTarget(pose, hiveRight));
-        if (pose.x() >= 72) {
-            follower.hold(holdRight);
-        } else {
-            follower.hold(holdLeft);
-        }
+        follower.hold(holdRight);
     }
 
     private double angleToTarget(Pose robotPose, Pose targetPose) {

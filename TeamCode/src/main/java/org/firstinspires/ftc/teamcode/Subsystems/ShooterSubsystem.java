@@ -1,29 +1,26 @@
 package org.firstinspires.ftc.teamcode.Subsystems;
 
+import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 import com.seattlesolvers.solverslib.command.SubsystemBase;
+import com.seattlesolvers.solverslib.hardware.motors.Motor;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 
 
 public class ShooterSubsystem extends SubsystemBase {
 
-    private final DcMotorEx flywheelMotor1;
     private final DcMotorEx flywheelMotor2;
     private double targetRPM;
     private double targetTPS;
     private double currentRPM;
 
     public ShooterSubsystem(HardwareMap hardwareMap) {
-        flywheelMotor1 = hardwareMap.get(DcMotorEx.class, "flywheelMotor1");
         flywheelMotor2 = hardwareMap.get(DcMotorEx.class, "flywheelMotor2");
 
-        flywheelMotor2.setDirection(DcMotorSimple.Direction.REVERSE);
-
-        flywheelMotor1.setVelocityPIDFCoefficients(1000, 0, 0, 100);
-        flywheelMotor2.setVelocityPIDFCoefficients(1000, 0, 0, 100);
     }
 
     /**
@@ -33,7 +30,6 @@ public class ShooterSubsystem extends SubsystemBase {
     public void setRPM(double RPM) {
         targetRPM = RPM;
         targetTPS = (targetRPM * 28) / 60;
-        flywheelMotor1.setVelocity(targetTPS);
         flywheelMotor2.setVelocity(targetTPS);
     }
 
@@ -41,7 +37,6 @@ public class ShooterSubsystem extends SubsystemBase {
      * Sets the flywheel motor power to 0
      */
     public void stopShooter() {
-        flywheelMotor1.setPower(0);
         flywheelMotor2.setPower(0);
         targetRPM = 0;
     }
@@ -50,11 +45,11 @@ public class ShooterSubsystem extends SubsystemBase {
      * Returns t/f if the flywheel is ready for shooting
      */
     public boolean flywheelReady() {
-        return Math.abs(getRPM() - targetRPM) <= 200;
+        return Math.abs(getRPM() - targetRPM) <= 150;
     }
 
     public double getRPM() {
-        currentRPM = (flywheelMotor1.getVelocity() / 28) * 60;
+        currentRPM = (flywheelMotor2.getVelocity() / 28) * 60;
         return currentRPM;
     }
 
