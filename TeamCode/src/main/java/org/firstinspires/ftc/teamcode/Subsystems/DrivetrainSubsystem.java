@@ -4,6 +4,7 @@ import com.pedropathing.drivetrain.DrivePowers;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.follower.ManualDrive;
 import com.pedropathing.math.Pose;
+import com.pedropathing.math.Velocity;
 import com.pedropathing.paths.Path;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.util.Range;
@@ -121,6 +122,14 @@ public class DrivetrainSubsystem implements Subsystem {
 
     public Pose pose() {
         return follower.pose();
+    }
+
+    /**
+     * @return vx and vy in inches per second, omega in radians per second.
+     * TODO: check on the robot whether Pedro reports this in the field frame or the robot frame.
+     */
+    public Velocity velocity() {
+        return follower.velocity();
     }
 
     public double heading() {

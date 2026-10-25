@@ -1,0 +1,64 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hood range comparison map</title>
+<style>
+:root{--bg:#fff;--fg:#1a1a18;--mut:#5f5e5a;--card:#f1efe8;--bd:#d3d1c7;--ok:#1D9E75;--st:#378ADD;--no:#b4b2a9;--wall:#888780}
+@media(prefers-color-scheme:dark){:root{--bg:#1c1c1a;--fg:#f1efe8;--mut:#b4b2a9;--card:#2c2c2a;--bd:#444441;--no:#5a5a56;--wall:#2a2a28}}
+body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;max-width:900px;margin:auto}
+h1{font-size:20px;font-weight:500;margin:0 0 4px}p{margin:4px 0;color:var(--mut)}
+.row{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;margin:12px 0;font-size:13px;color:var(--mut)}
+select{font-size:13px;padding:4px}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+canvas{width:100%;border:1px solid var(--bd);border-radius:8px;touch-action:none}
+.s{font-size:13px;color:var(--mut);margin-top:4px}.s b{color:var(--fg);font-weight:500}
+.card{background:var(--card);border-radius:8px;padding:10px 12px;margin-top:14px;font-size:14px}
+h2{font-size:15px;font-weight:500;margin:0 0 4px}
+</style></head><body>
+<h1>Hood range: 60–75° vs 65–80°</h1>
+<p>Top-down view of the red-side half of the field in front of the up-facing hive cell (orange dot). Robot driving 2 ft/s in any direction, ball checked by a physics solver. Shots modelled with a wiffle ball (drag coefficient is a guess), 3 in wheel, 2500–4800 RPM.</p>
+<div class="row">
+<label>Show <select id="ly"><option value="w">Where SOTM works</option><option value="h">How much the hood does</option></select></label>
+<label>Strictness <select id="md"><option value="strict">Strict: flywheel ±500 RPM, 90% of directions</option><option value="relaxed">Relaxed: flywheel ±1000 RPM, 80% of directions</option></select></label>
+<span id="lg"></span></div>
+<div class="g" id="g"></div>
+<div class="card" id="rd">Hover or tap a map for details.</div>
+<div class="card"><h2>Takeaway</h2>
+65–80° covers about 15 more points of the field with shoot-on-the-move than 60–75° and leaves far less of the field with no shot. The top end of the hood matters more than the bottom end. Suggested RPM presets for 65–80°: 3090, 3360, 3730. For 60–75°: 3340, 3780.</div>
+<script>
+const D=/*DATA*/;
+const NAMES={"60-75":"60–75° hood","65-80":"65–80° hood"},SZ=360,SC=SZ/144;
+const dark=matchMedia("(prefers-color-scheme: dark)").matches;
+const C={ok:"#1D9E75",st:"#378ADD",no:dark?"#5a5a56":"#b4b2a9",wall:dark?"#2a2a28":"#888780"};
+const $=id=>document.getElementById(id),g=$("g"),ly=$("ly"),md=$("md");
+const W={};
+for(const k of ["60-75","65-80"]){
+ const w=document.createElement("div");
+ w.innerHTML='<div style="font-weight:500;margin-bottom:4px">'+NAMES[k]+'</div><canvas width="'+SZ+'" height="'+SZ+'"></canvas><div class="s"></div>';
+ g.appendChild(w);W[k]={cv:w.querySelector("canvas"),st:w.querySelector(".s"),sel:null};
+ const pick=e=>{const d=D[md.value][k],r=W[k].cv.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*144,z=(e.clientY-r.top)/r.height*144;
+  const ix=Math.round((x-d.x0)/d.step),iz=Math.round((z-d.z0)/d.step);if(ix<0||iz<0||ix>=d.nx||iz>=d.nz)return;
+  const i=iz*d.nx+ix,ch=d.cls[i],dist=Math.round(Math.hypot(d.x0+ix*d.step-59.25,d.z0+iz*d.step-88));
+  const t=ch==="x"?"Hive or wall margin.":ch==="0"?"SOTM works with the RPM held; the hood does the work.":ch==="1"?"SOTM works but the flywheel has to change speed.":ch==="2"?"Stationary shots only; driving breaks it.":"No shot from here.";
+  $("rd").innerHTML="<b>"+NAMES[k]+"</b>, spot "+Math.round(d.x0+ix*d.step)+", "+Math.round(d.z0+iz*d.step)+" in ("+dist+" in from the cell): "+t;};
+ W[k].cv.addEventListener("pointermove",pick);W[k].cv.addEventListener("pointerdown",pick);
+}
+function mix(a,b,t){const h=c=>[1,3,5].map(i=>parseInt(c.slice(i,i+2),16));const A=h(a),B=h(b);return"rgb("+A.map((v,i)=>Math.round(v+(B[i]-v)*t)).join(",")+")";}
+function draw(){
+ const mode=ly.value;
+ for(const k in W){
+  const d=D[md.value][k],ctx=W[k].cv.getContext("2d");ctx.clearRect(0,0,SZ,SZ);
+  const n=[0,0,0,0];let tot=0;
+  for(let i=0;i<d.nx*d.nz;i++){
+   const x=d.x0+(i%d.nx)*d.step,z=d.z0+Math.floor(i/d.nx)*d.step,ch=d.cls[i],px=(x-d.step/2)*SC,pz=(z-d.step/2)*SC,s=d.step*SC+0.5;
+   if(ch==="x"){ctx.fillStyle=C.wall;ctx.fillRect(px,pz,s,s);continue;}
+   const c=+ch;if(z>88){n[c]++;tot++;}
+   ctx.fillStyle=mode==="w"?(c<=1?C.ok:c===2?C.st:C.no):(c===3?C.no:mix("#E24B4A","#1D9E75",+d.fh[i]/9));
+   ctx.fillRect(px,pz,s,s);
+  }
+  ctx.fillStyle="rgba(150,150,145,0.9)";ctx.fillRect(47.3*SC,52.5*SC,49.4*SC,39*SC);
+  ctx.fillStyle="#EF9F27";ctx.beginPath();ctx.arc(59.25*SC,88*SC,5,0,7);ctx.fill();
+  const p=v=>Math.round(v/tot*100);
+  W[k].st.innerHTML="SOTM works: <b>"+p(n[0]+n[1])+"%</b> · Hood alone: <b>"+p(n[0])+"%</b> · Stationary only: <b>"+p(n[2])+"%</b> · No shot: <b>"+p(n[3])+"%</b><br>RPM presets: "+d.presets.join(", ");
+ }
+ $("lg").innerHTML=mode==="w"?'<span style="color:'+C.ok+'">■</span> SOTM works &nbsp;<span style="color:'+C.st+'">■</span> stationary only &nbsp;<span style="color:'+C.no+'">■</span> no shot':'red = flywheel does the work, green = hood does it';
+}
+ly.onchange=draw;md.onchange=draw;draw();
+</script></body></html>

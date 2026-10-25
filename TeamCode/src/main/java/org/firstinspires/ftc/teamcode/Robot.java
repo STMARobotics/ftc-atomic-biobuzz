@@ -6,10 +6,13 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
+import org.firstinspires.ftc.teamcode.Subsystems.BlockerSubsystem;
 import org.firstinspires.ftc.teamcode.Subsystems.DrivetrainSubsystem;
-import org.firstinspires.ftc.teamcode.Subsystems.IntakeSubsystem;
+import org.firstinspires.ftc.teamcode.Subsystems.FlowerBarSubsystem;
+import org.firstinspires.ftc.teamcode.Subsystems.IndexerSubsystem;
 import org.firstinspires.ftc.teamcode.Subsystems.ShooterSubsystem;
 import org.firstinspires.ftc.teamcode.Subsystems.Subsystem;
+import org.firstinspires.ftc.teamcode.Subsystems.TurretSubsystem;
 
 import java.util.Arrays;
 import java.util.List;
@@ -22,12 +25,21 @@ import java.util.List;
  * ...set wanted states... // 2. OpMode/auto says what it wants
  * robot.update();         // 3. superstructure decides, 4. subsystems write to hardware
  * </pre>
+ *
+ * Who sets each subsystem's goal:
+ * <ul>
+ *     <li>The superstructure: indexer, shooter, turret</li>
+ *     <li>The OpMode or auto directly: drivetrain, flower bar, blocker</li>
+ * </ul>
  */
 public class Robot {
 
     public final DrivetrainSubsystem drivetrain;
-    public final IntakeSubsystem intake;
+    public final IndexerSubsystem indexer;
     public final ShooterSubsystem shooter;
+    public final TurretSubsystem turret;
+    public final FlowerBarSubsystem flowerBar;
+    public final BlockerSubsystem blocker;
     public final Superstructure superstructure;
 
     private final List<LynxModule> hubs;
@@ -49,11 +61,15 @@ public class Robot {
         }
 
         drivetrain = new DrivetrainSubsystem(hardwareMap, startPose);
-        intake = new IntakeSubsystem(hardwareMap);
+        indexer = new IndexerSubsystem(hardwareMap);
         shooter = new ShooterSubsystem(hardwareMap);
-        superstructure = new Superstructure(intake, shooter);
+        turret = new TurretSubsystem(hardwareMap);
+        flowerBar = new FlowerBarSubsystem(hardwareMap);
+        blocker = new BlockerSubsystem(hardwareMap);
+        superstructure = new Superstructure(indexer, shooter, turret, drivetrain);
 
-        subsystems = Arrays.asList(drivetrain, intake, shooter);
+        // A subsystem that isn't in this list never gets readInputs() or writeOutputs() called
+        subsystems = Arrays.asList(drivetrain, indexer, shooter, turret, flowerBar, blocker);
     }
 
     /**
@@ -87,9 +103,15 @@ public class Robot {
         superstructure.telemetrize(telemetry);
         telemetry.addData("|-----| Drivetrain |-----|", "");
         drivetrain.telemetrize(telemetry);
+        telemetry.addData("|-----| Indexer |-----|", "");
+        indexer.telemetrize(telemetry);
         telemetry.addData("|-----| Shooter |-----|", "");
         shooter.telemetrize(telemetry);
-        telemetry.addData("|-----| Intake |-----|", "");
-        intake.telemetrize(telemetry);
+        telemetry.addData("|-----| Turret |-----|", "");
+        turret.telemetrize(telemetry);
+        telemetry.addData("|-----| Flower bar |-----|", "");
+        flowerBar.telemetrize(telemetry);
+        telemetry.addData("|-----| Blocker |-----|", "");
+        blocker.telemetrize(telemetry);
     }
 }
