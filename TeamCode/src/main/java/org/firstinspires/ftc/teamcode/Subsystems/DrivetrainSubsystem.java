@@ -31,12 +31,9 @@ public class DrivetrainSubsystem extends SubsystemBase {
     }
 
     public DrivetrainSubsystem(HardwareMap hardwareMap) {
-        this(hardwareMap, Pose.zero());
-    }
-
-    public DrivetrainSubsystem(HardwareMap hardwareMap, Pose startPose) {
+        Pose startPose = new Pose(0, 0, 0);
         follower = Constants.createFollower(hardwareMap);
-        follower.setPose(startPose);
+        follower.setPose(Pose.zero());
         driverForwardHeading = startPose.heading();
     }
 

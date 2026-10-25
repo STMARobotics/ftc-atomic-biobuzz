@@ -30,6 +30,5 @@ public class Tuning {
     public static Procedure tests() {
         // return new Tests(Constants::createDrivetrain, Constants::createLocalizer, Constants::createAlgorithm);
         return new Tests(hardwareMap -> new Mecanum(hardwareMap, Constants.drivetrainConfig), null, null);
-
     }
 }

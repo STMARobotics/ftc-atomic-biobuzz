@@ -37,12 +37,11 @@ public class Constants {
         c.backRightDirection.set(DcMotorSimple.Direction.FORWARD);
     });
 
-    // TODO: replace with OTOS Tuner output
     public static OTOSConfig localizerConfig = new OTOSConfig(c -> {
         c.name.set("otos");
-        c.linearScalar.set(1.0);
-        c.angularScalar.set(1.0);
-        c.offset.set(new Pose(-3.641732, 1.10236));
+        c.linearScalar.set(0.990105219330855);
+        c.angularScalar.set(0.9911121126010783);
+        c.offset.set(new Pose(1.10236, -3.641732));
         c.linearUnit.set(DistanceUnit.INCH);
     });
 
