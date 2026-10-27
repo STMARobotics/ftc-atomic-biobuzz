@@ -34,7 +34,6 @@ public class Superstructure {
     public enum SystemState {
         IDLE,
         INTAKING,
-        FULL,
         SPINNING_UP,
         FEEDING,
         OUTTAKING
@@ -50,9 +49,10 @@ public class Superstructure {
     private Alliance alliance = Alliance.RED;
     private final ElapsedTime stateTimer = new ElapsedTime();
 
-    /** Turret angle, rpm and hood angle for the shot we'd take right now. Recomputed every loop. */
+    /** Turret angle, rpm and both hood angles for the shot we would take right now. Recomputed every loop. */
     private ShotCalculator.Solution shot = new ShotCalculator.Solution(
-            0, Constants.Shooter.TARGET_RPM, Constants.Shooter.DEFAULT_HOOD_ANGLE_DEG);
+            0, Constants.Shooter.TARGET_RPM,
+            Constants.Shooter.DEFAULT_HOOD_ANGLE_DEG, Constants.Shooter.DEFAULT_HOOD_ANGLE_DEG);
 
     public Superstructure(IndexerSubsystem indexer, ShooterSubsystem shooter, TurretSubsystem turret,
                           DrivetrainSubsystem drivetrain) {
@@ -106,12 +106,11 @@ public class Superstructure {
     private SystemState nextState() {
         switch (wantedState) {
             case INTAKE:
-                // TODO: go to FULL instead when the indexer is full (indexer.isFull())
                 return SystemState.INTAKING;
             case SHOOT:
                 // Only feed while the flywheel is at speed. If an artifact drags the rpm down, this
                 // drops back to SPINNING_UP and waits for the flywheel to recover before feeding again.
-                // TODO: also wait for the turret to be on target and the hood to be at its angle
+                // TODO: also wait for the turret to be on target (the hood servos have no feedback, so there is nothing to wait for there)
                 return shooter.atSpeed() ? SystemState.FEEDING : SystemState.SPINNING_UP;
             case OUTTAKE:
                 return SystemState.OUTTAKING;
@@ -131,29 +130,24 @@ public class Superstructure {
         // Safe defaults
         indexer.setMotorGoal(IndexerSubsystem.MotorGoal.STOP);
         indexer.setGateGoal(IndexerSubsystem.GateGoal.CLOSED);
-        indexer.setDiverterGoal(IndexerSubsystem.DiverterGoal.PASS);
         // TODO: the intake pivot has to be DEPLOYED once the match starts (it starts STOWED so the
         //       robot fits in the 18 in. start cube). Decide where that gets set.
-        shooter.setGoal(ShooterSubsystem.Goal.OFF, 0, Constants.Shooter.DEFAULT_HOOD_ANGLE_DEG);
+        shooter.setGoal(ShooterSubsystem.Goal.OFF, 0,
+                Constants.Shooter.DEFAULT_HOOD_ANGLE_DEG, Constants.Shooter.DEFAULT_HOOD_ANGLE_DEG);
         turret.setGoal(TurretSubsystem.Goal.HOLD, turret.getAngleDeg());
 
         switch (systemState) {
             case INTAKING:
                 indexer.setMotorGoal(IndexerSubsystem.MotorGoal.INTAKE);
-                // TODO: DIVERT instead of PASS while indexer.wrongNectarSeen()
-                break;
-            case FULL:
-                // TODO: nothing to override? Check that the defaults really are what you want here.
                 break;
             case SPINNING_UP:
-                shooter.setGoal(ShooterSubsystem.Goal.SPIN_UP, shot.rpm, shot.hoodAngleDeg);
+                shooter.setGoal(ShooterSubsystem.Goal.SPIN_UP, shot.rpm, shot.hoodPollenAngleDeg, shot.hoodNectarAngleDeg);
                 turret.setGoal(TurretSubsystem.Goal.AIM, shot.turretAngleDeg);
                 break;
             case FEEDING:
                 indexer.setMotorGoal(IndexerSubsystem.MotorGoal.FEED);
                 indexer.setGateGoal(IndexerSubsystem.GateGoal.OPEN);
-                // TODO: DIVERT instead of PASS while indexer.wrongNectarSeen()
-                shooter.setGoal(ShooterSubsystem.Goal.SPIN_UP, shot.rpm, shot.hoodAngleDeg);
+                shooter.setGoal(ShooterSubsystem.Goal.SPIN_UP, shot.rpm, shot.hoodPollenAngleDeg, shot.hoodNectarAngleDeg);
                 turret.setGoal(TurretSubsystem.Goal.AIM, shot.turretAngleDeg);
                 break;
             case OUTTAKING:

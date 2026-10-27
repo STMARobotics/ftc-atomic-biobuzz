@@ -19,12 +19,14 @@ public final class ShotCalculator {
     public static final class Solution {
         public final double turretAngleDeg;
         public final double rpm;
-        public final double hoodAngleDeg;
+        public final double hoodPollenAngleDeg;
+        public final double hoodNectarAngleDeg;
 
-        public Solution(double turretAngleDeg, double rpm, double hoodAngleDeg) {
+        public Solution(double turretAngleDeg, double rpm, double hoodPollenAngleDeg, double hoodNectarAngleDeg) {
             this.turretAngleDeg = turretAngleDeg;
             this.rpm = rpm;
-            this.hoodAngleDeg = hoodAngleDeg;
+            this.hoodPollenAngleDeg = hoodPollenAngleDeg;
+            this.hoodNectarAngleDeg = hoodNectarAngleDeg;
         }
     }
 
@@ -38,13 +40,14 @@ public final class ShotCalculator {
         // TODO: 2. flight time from distance (lookup table), shift the target by -velocity * time,
         //          and repeat 2 or 3 times
         // TODO: 3. turret angle = direction to the shifted target, minus the robot's heading
-        // TODO: 4. rpm and hood angle from the final distance (lookup table)
+        // TODO: 4. rpm and both hood angles (pollen, nectar) from the final distance (one lookup table)
         // TODO: 5. physics check: fly the ball once with the real physics (gravity, drag, and the robot's own
         //          velocity added), see where it crosses the cell opening, and nudge the hood angle and turret
         //          yaw until the predicted miss is near zero. Keep the table answer if the refined one is
         //          worse. In simulation this took toward/away shots at 2 ft/s from about 52% to 100%.
 
         // Until then, a fixed shot so everything else keeps working
-        return new Solution(0, Constants.Shooter.TARGET_RPM, Constants.Shooter.DEFAULT_HOOD_ANGLE_DEG);
+        return new Solution(0, Constants.Shooter.TARGET_RPM,
+                Constants.Shooter.DEFAULT_HOOD_ANGLE_DEG, Constants.Shooter.DEFAULT_HOOD_ANGLE_DEG);
     }
 }

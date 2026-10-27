@@ -1,5 +1,8 @@
 package org.firstinspires.ftc.teamcode.Subsystems;
 
+import static org.firstinspires.ftc.teamcode.Constants.FlowerBar.DEPLOYED_POSITION;
+import static org.firstinspires.ftc.teamcode.Constants.FlowerBar.STOWED_POSITION;
+
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
 
@@ -36,12 +39,17 @@ public class FlowerBarSubsystem implements Subsystem {
 
     @Override
     public void readInputs() {
-        // Servos can't report their position, so there's nothing to read.
+        // Nothing to read
     }
 
     @Override
     public void writeOutputs() {
         // TODO: servo position from goal (positions are in Constants.FlowerBar)
+        if (goal == Goal.DEPLOYED) {
+            barServo.setPosition(DEPLOYED_POSITION);
+        } else {
+            barServo.setPosition(STOWED_POSITION);
+        }
     }
 
     @Override
