@@ -27,7 +27,9 @@ public class Superstructure {
         IDLE,
         INTAKE,
         SHOOT,
-        OUTTAKE
+        OUTTAKE,
+        BATTLE_MODE,
+
     }
 
     /** What the robot is actually doing right now. */
