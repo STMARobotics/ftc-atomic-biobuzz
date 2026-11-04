@@ -50,6 +50,10 @@ public class TurretSubsystem extends SubsystemBase {
 
     @Override
     public void periodic() {
+        if (!Turret.ENABLED) {
+            turretMotor.setPower(0);
+            return;
+        }
         if (unwinding) {
             double headingChange = Math.toDegrees(headingRad.getAsDouble() - headingAtUnwind);
             setTarget(unwindTarget + DIR * headingChange);

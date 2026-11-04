@@ -17,6 +17,8 @@ import org.firstinspires.ftc.teamcode.Commands.IntakeWheelsControlCommand;
 import org.firstinspires.ftc.teamcode.Commands.ManualTurretCommand;
 import org.firstinspires.ftc.teamcode.Commands.ShootCommand;
 import org.firstinspires.ftc.teamcode.RobotConstants.Drive;
+import org.firstinspires.ftc.teamcode.RobotConstants.Flower;
+import org.firstinspires.ftc.teamcode.RobotConstants.Limelight;
 import org.firstinspires.ftc.teamcode.RobotConstants.Shooter;
 import org.firstinspires.ftc.teamcode.Subsystems.DrivetrainSubsystem;
 import org.firstinspires.ftc.teamcode.Subsystems.FlowerSubsystem;
@@ -62,7 +64,8 @@ public class ChunkMode extends CommandOpMode {
 
     private boolean battleMode = false;
     private boolean flowerWanted = false;
-    private boolean autoAimEnabled = true;
+    // without a camera auto aim would block the gate forever
+    private boolean autoAimEnabled = Limelight.ENABLED;
 
     @Override
     public void initialize() {
@@ -159,6 +162,7 @@ public class ChunkMode extends CommandOpMode {
         // Flower mech, A toggles it and turning it on leaves battle mode
         gamepad.getGamepadButton(GamepadKeys.Button.A)
                 .whenPressed(() -> {
+                    if (!Flower.ENABLED) return;
                     flowerWanted = !flowerWanted;
                     if (flowerWanted) battleMode = false;
                 });
