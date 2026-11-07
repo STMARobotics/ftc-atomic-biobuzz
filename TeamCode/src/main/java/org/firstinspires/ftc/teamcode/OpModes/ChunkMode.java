@@ -3,7 +3,6 @@ package org.firstinspires.ftc.teamcode.OpModes;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.Range;
 import com.seattlesolvers.solverslib.command.CommandOpMode;
-import com.seattlesolvers.solverslib.command.InstantCommand;
 import com.seattlesolvers.solverslib.command.RunCommand;
 import com.seattlesolvers.solverslib.command.button.Trigger;
 import com.seattlesolvers.solverslib.gamepad.GamepadEx;
@@ -29,11 +28,10 @@ import org.firstinspires.ftc.teamcode.Subsystems.TurretSubsystem;
 /**
  * Controls (gamepad 1):
  *   sticks        drive (left translate, right turn)
- *   left trigger  intake (deploys the intake, it stays down when you let go)
+ *   left trigger  intake (hold, the intake is down while held and fully stowed otherwise)
  *   B             outtake (hold)
  *   right trigger shoot, gate opens once the flywheel is past GATE_OPEN_RPM
  *   right bumper  gate override toggle (holds the gate open)
- *   X             battle mode (fully stows the intake, intake puts it back down)
  *   A             flower mech toggle
  *   dpad up/down  pollen hood +/- 0.02
  *   dpad right/left nectar hood +/- 0.02
@@ -78,7 +76,6 @@ public class ChunkMode extends CommandOpMode {
         wheelsSubsystem = new IntakeWheelsSubsystem(hardwareMap);
         flowerSubsystem = new FlowerSubsystem(hardwareMap);
         hoodSubsystem = new HoodSubsystem(hardwareMap);
-        hoodSubsystem.setPositions(pollen, nectar); // hoods go to their defaults on init
 
         // Gamepad
         gamepad = new GamepadEx(gamepad1);
@@ -146,13 +143,19 @@ public class ChunkMode extends CommandOpMode {
             else gateSubsystem.close();
         }, gateSubsystem));
 
+        // Intake pivot: down while intaking (or for the flower), fully stowed the rest of the time
+        pivotSubsystem.setDefaultCommand(new RunCommand(() -> {
+            if (intakeHeld() || flowerWanted) pivotSubsystem.deploy();
+            else pivotSubsystem.fullyStow();
+        }, pivotSubsystem));
+
         // Flower: the intake is its hardstop so it only goes out once the intake is down
         flowerSubsystem.setDefaultCommand(new RunCommand(() -> {
             if (flowerWanted && pivotSubsystem.isDeployed()) flowerSubsystem.deploy();
             else flowerSubsystem.stow();
         }, flowerSubsystem));
 
-        // Hoods hold whatever the dpad set them to
+        // Hoods go to their defaults on the first loop after START, then hold whatever the dpad set
         hoodSubsystem.setDefaultCommand(new RunCommand(
                 () -> hoodSubsystem.setPositions(pollen, nectar), hoodSubsystem));
 
@@ -164,22 +167,10 @@ public class ChunkMode extends CommandOpMode {
         gamepad.getGamepadButton(GamepadKeys.Button.START)
                 .whenPressed(drivetrainSubsystem::resetFieldCentric);
 
-        // Intake pivot, starts fully stowed. Intake puts it down and it stays down,
-        // X (battle mode) tucks it back up and stows the flower. Last pressed wins
-        new Trigger(this::intakeHeld)
-                .whenActive(new InstantCommand(pivotSubsystem::deploy));
-        gamepad.getGamepadButton(GamepadKeys.Button.X)
-                .whenPressed(() -> {
-                    flowerWanted = false;
-                    pivotSubsystem.fullyStow();
-                });
-
-        // Flower mech, A toggles it and turning it on puts the intake down
+        // Flower mech, A toggles it (the pivot puts the intake down for it)
         gamepad.getGamepadButton(GamepadKeys.Button.A)
                 .whenPressed(() -> {
-                    if (!Flower.ENABLED) return;
-                    flowerWanted = !flowerWanted;
-                    if (flowerWanted) pivotSubsystem.deploy();
+                    if (Flower.ENABLED) flowerWanted = !flowerWanted;
                 });
 
         // Gate override, right bumper toggles the gate open

@@ -11,14 +11,14 @@ import org.firstinspires.ftc.teamcode.RobotConstants.IntakePivot;
 public class IntakePivotSubsystem extends SubsystemBase {
 
     private final Servo pivotServo;
-    private double position = IntakePivot.FULLY_STOWED;
+    private double position = IntakePivot.FULLY_STOWED; // auto leaves it stowed
 
+    // doesn't move the servo, nothing can move in teleop init. Auto calls fullyStow() itself
     // null when IntakePivot.ENABLED is false, then the servo never gets a position and stays limp
     public IntakePivotSubsystem(HardwareMap hardwareMap) {
         pivotServo = IntakePivot.ENABLED
                 ? hardwareMap.get(Servo.class, HardwareNames.PIVOT_SERVO)
                 : null;
-        fullyStow();
     }
 
     public void deploy() {

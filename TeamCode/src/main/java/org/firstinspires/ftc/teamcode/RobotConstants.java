@@ -51,7 +51,7 @@ public final class RobotConstants {
         // distance to the goal (in) -> flywheel rpm, pollen hood, nectar hood
         // TUNE (add a point every time you test a shot)
         public static final ShotLookupTable SHOT_TABLE = new ShotLookupTable()
-                .add(24, SHOOT_RPM, 0.5, 0.5);
+                .add(24, SHOOT_RPM, 0.68, 0.5);
 
         // with the limelight off every shot uses the table at this distance, so it's one fixed shot
         public static final double FIXED_DISTANCE_IN = 24; // TUNE

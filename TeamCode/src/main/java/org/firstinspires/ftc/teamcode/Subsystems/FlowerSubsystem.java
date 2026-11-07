@@ -18,7 +18,7 @@ public class FlowerSubsystem extends SubsystemBase {
 
     public FlowerSubsystem(HardwareMap hardwareMap) {
         flowerServo = hardwareMap.get(Servo.class, HardwareNames.FLOWER_SERVO);
-        stow();
+        // no stow() here, nothing can move in teleop init
     }
 
     public void deploy() {

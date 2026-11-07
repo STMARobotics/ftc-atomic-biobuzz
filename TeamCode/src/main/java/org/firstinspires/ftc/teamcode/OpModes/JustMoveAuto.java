@@ -13,12 +13,17 @@ import com.pedropathing.ivy.Scheduler;
 import static com.pedropathing.ivy.Scheduler.schedule;
 import static com.pedropathing.ivy.pedro.PedroCommands.follow;
 
+import com.qualcomm.robotcore.hardware.HardwareMap;
+import org.firstinspires.ftc.teamcode.RobotConstants;
+import org.firstinspires.ftc.teamcode.Subsystems.IntakePivotSubsystem;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 
 @Autonomous
 public class JustMoveAuto extends OpMode {
 
     private Follower follower;
+
+    private IntakePivotSubsystem intakePivotSubsystem;
 
     private final PoseFactory poseFactory = PoseFactory.degrees();
 
@@ -27,21 +32,24 @@ public class JustMoveAuto extends OpMode {
 
     @Override
     public void init() {
+        intakePivotSubsystem = new IntakePivotSubsystem(hardwareMap);
         Scheduler.reset();
         follower = Constants.createFollower(hardwareMap);
         follower.setPose(start);
+        intakePivotSubsystem.fullyStow();
     }
 
     @Override
     public void start() {
         schedule(follow(follower, path1()));
-
+        intakePivotSubsystem.fullyStow();
     }
 
     @Override
     public void loop() {
         follower.update();
         Scheduler.execute();
+        intakePivotSubsystem.fullyStow();
     }
 
     public Path path1() {

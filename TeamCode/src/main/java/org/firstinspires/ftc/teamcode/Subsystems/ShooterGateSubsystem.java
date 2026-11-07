@@ -18,7 +18,7 @@ public class ShooterGateSubsystem extends SubsystemBase {
 
     public ShooterGateSubsystem(HardwareMap hardwareMap) {
         gateServo = hardwareMap.get(Servo.class, HardwareNames.GATE_SERVO);
-        close();
+        // no close() here, nothing can move in teleop init
     }
 
     public void open() {
