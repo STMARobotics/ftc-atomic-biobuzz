@@ -10,8 +10,8 @@ import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
 
 /**
- * Spins the flywheel up and opens the gate when the flywheel and the aim are both ready.
- * Doesn't touch the intake wheels, they feed off the gate being open.
+ * Spins the flywheel up and opens the gate once it's past GATE_OPEN_RPM and the aim is ready.
+ * Doesn't touch the intake wheels, they feed while we're shooting and the gate is open.
  */
 public class ShootCommand extends CommandBase {
 
@@ -45,10 +45,11 @@ public class ShootCommand extends CommandBase {
             shooterSubsystem.setRPM(targetRPM);
         }
 
-        if (shooterSubsystem.flywheelReady() && aimReady.getAsBoolean()) {
+        // once it opens it stays open until we let go, so the rpm dip from each ball doesn't stall feeding
+        if (!gateSubsystem.isOpen()
+                && shooterSubsystem.getRPM() >= Shooter.GATE_OPEN_RPM
+                && aimReady.getAsBoolean()) {
             gateSubsystem.open();
-        } else {
-            gateSubsystem.close();
         }
     }
 

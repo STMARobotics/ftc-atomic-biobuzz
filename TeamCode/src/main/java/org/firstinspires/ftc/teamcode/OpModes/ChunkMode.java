@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.OpModes;
 
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.util.Range;
 import com.seattlesolvers.solverslib.command.CommandOpMode;
 import com.seattlesolvers.solverslib.command.InstantCommand;
 import com.seattlesolvers.solverslib.command.RunCommand;
@@ -10,11 +11,6 @@ import com.seattlesolvers.solverslib.gamepad.GamepadKeys;
 
 import org.firstinspires.ftc.teamcode.Commands.AimCommand;
 import org.firstinspires.ftc.teamcode.Commands.DriveCommand;
-import org.firstinspires.ftc.teamcode.Commands.FlowerControlCommand;
-import org.firstinspires.ftc.teamcode.Commands.HoodCommand;
-import org.firstinspires.ftc.teamcode.Commands.IntakePivotControlCommand;
-import org.firstinspires.ftc.teamcode.Commands.IntakeWheelsControlCommand;
-import org.firstinspires.ftc.teamcode.Commands.ManualTurretCommand;
 import org.firstinspires.ftc.teamcode.Commands.ShootCommand;
 import org.firstinspires.ftc.teamcode.RobotConstants.Drive;
 import org.firstinspires.ftc.teamcode.RobotConstants.Flower;
@@ -33,21 +29,21 @@ import org.firstinspires.ftc.teamcode.Subsystems.TurretSubsystem;
 /**
  * Controls (gamepad 1):
  *   sticks        drive (left translate, right turn)
- *   left trigger  intake
+ *   left trigger  intake (deploys the intake, it stays down when you let go)
  *   B             outtake (hold)
- *   right trigger shoot, waits for the aim unless auto aim is off
- *   X             battle mode toggle
+ *   right trigger shoot, gate opens once the flywheel is past GATE_OPEN_RPM
+ *   right bumper  gate override toggle (holds the gate open)
+ *   X             battle mode (fully stows the intake, intake puts it back down)
  *   A             flower mech toggle
- *   dpad up       turret home (turns auto aim off)
- *   dpad down     auto aim toggle
- *   dpad left     turn turret counterclockwise (hold)
- *   dpad right    turn turret clockwise (hold)
+ *   dpad up/down  pollen hood +/- 0.02
+ *   dpad right/left nectar hood +/- 0.02
  *   start         reset field centric
  */
 @TeleOp(name = "ChunkMode", group = "TeleOp")
 public class ChunkMode extends CommandOpMode {
 
     private static final double TRIGGER_THRESHOLD = 0.1;
+    private static final double HOOD_STEP = 0.02;
 
     // Subsystems
     private DrivetrainSubsystem drivetrainSubsystem;
@@ -62,10 +58,14 @@ public class ChunkMode extends CommandOpMode {
 
     private GamepadEx gamepad;
 
-    private boolean battleMode = false;
     private boolean flowerWanted = false;
+    private boolean gateOverride = false;
     // without a camera auto aim would block the gate forever
     private boolean autoAimEnabled = Limelight.ENABLED;
+
+    // start from the shot table, the dpad nudges them
+    private double pollen = Shooter.SHOT_TABLE.get(Shooter.FIXED_DISTANCE_IN).pollenHood;
+    private double nectar = Shooter.SHOT_TABLE.get(Shooter.FIXED_DISTANCE_IN).nectarHood;
 
     @Override
     public void initialize() {
@@ -78,6 +78,7 @@ public class ChunkMode extends CommandOpMode {
         wheelsSubsystem = new IntakeWheelsSubsystem(hardwareMap);
         flowerSubsystem = new FlowerSubsystem(hardwareMap);
         hoodSubsystem = new HoodSubsystem(hardwareMap);
+        hoodSubsystem.setPositions(pollen, nectar); // hoods go to their defaults on init
 
         // Gamepad
         gamepad = new GamepadEx(gamepad1);
@@ -102,13 +103,13 @@ public class ChunkMode extends CommandOpMode {
             telemetry.addData("|-----| Shooter Telemetry |-----|", "");
             shooterSubsystem.telemetrize(telemetry);
             gateSubsystem.telemetrize(telemetry);
+            telemetry.addData("Gate override", gateOverride);
             hoodSubsystem.telemetrize(telemetry);
-            telemetry.addData("Distance (in)", "%.1f", limelightSubsystem.getDistance());
+            telemetry.addData("Shot distance (in)", "%.1f", shotDistance());
             telemetry.addData("|-----| Intake Telemetry |-----|", "");
             pivotSubsystem.telemetrize(telemetry);
             wheelsSubsystem.telemetrize(telemetry);
             flowerSubsystem.telemetrize(telemetry);
-            telemetry.addData("Battle mode", battleMode);
             telemetry.addData("Flower wanted", flowerWanted);
             telemetry.update();
         });
@@ -131,15 +132,29 @@ public class ChunkMode extends CommandOpMode {
         drivetrainSubsystem.setDefaultCommand(teleopDriveCommand);
         turretSubsystem.setDefaultCommand(new AimCommand(
                 turretSubsystem, limelightSubsystem, () -> autoAimEnabled));
-        pivotSubsystem.setDefaultCommand(new IntakePivotControlCommand(
-                pivotSubsystem, () -> battleMode, this::intakeHeld,
-                () -> flowerWanted, flowerSubsystem::isStowed));
-        hoodSubsystem.setDefaultCommand(new HoodCommand(hoodSubsystem, limelightSubsystem::getDistance));
-        flowerSubsystem.setDefaultCommand(new FlowerControlCommand(
-                flowerSubsystem, pivotSubsystem, () -> flowerWanted));
-        wheelsSubsystem.setDefaultCommand(new IntakeWheelsControlCommand(
-                wheelsSubsystem, this::outtakeHeld, gateSubsystem::isOpen, this::intakeHeld,
-                () -> battleMode));
+
+        // Intake wheels: outtake wins, then feeding (shooting with the gate open), then intake, otherwise stopped
+        wheelsSubsystem.setDefaultCommand(new RunCommand(() -> {
+            if (outtakeHeld()) wheelsSubsystem.outtake();
+            else if ((shootHeld() && gateSubsystem.isOpen()) || intakeHeld()) wheelsSubsystem.intake();
+            else wheelsSubsystem.stop();
+        }, wheelsSubsystem));
+
+        // Gate: closed unless the override is on, ShootCommand takes it over while shooting
+        gateSubsystem.setDefaultCommand(new RunCommand(() -> {
+            if (gateOverride) gateSubsystem.open();
+            else gateSubsystem.close();
+        }, gateSubsystem));
+
+        // Flower: the intake is its hardstop so it only goes out once the intake is down
+        flowerSubsystem.setDefaultCommand(new RunCommand(() -> {
+            if (flowerWanted && pivotSubsystem.isDeployed()) flowerSubsystem.deploy();
+            else flowerSubsystem.stow();
+        }, flowerSubsystem));
+
+        // Hoods hold whatever the dpad set them to
+        hoodSubsystem.setDefaultCommand(new RunCommand(
+                () -> hoodSubsystem.setPositions(pollen, nectar), hoodSubsystem));
 
         configureButtonBindings();
     }
@@ -149,26 +164,30 @@ public class ChunkMode extends CommandOpMode {
         gamepad.getGamepadButton(GamepadKeys.Button.START)
                 .whenPressed(drivetrainSubsystem::resetFieldCentric);
 
-        // Battle mode, X toggles it and pressing intake leaves it (last pressed wins).
-        // Turning it on stows the flower first, the pivot waits for it
+        // Intake pivot, starts fully stowed. Intake puts it down and it stays down,
+        // X (battle mode) tucks it back up and stows the flower. Last pressed wins
+        new Trigger(this::intakeHeld)
+                .whenActive(new InstantCommand(pivotSubsystem::deploy));
         gamepad.getGamepadButton(GamepadKeys.Button.X)
                 .whenPressed(() -> {
-                    battleMode = !battleMode;
-                    if (battleMode) flowerWanted = false;
+                    flowerWanted = false;
+                    pivotSubsystem.fullyStow();
                 });
-        new Trigger(this::intakeHeld)
-                .whenActive(new InstantCommand(() -> battleMode = false));
 
-        // Flower mech, A toggles it and turning it on leaves battle mode
+        // Flower mech, A toggles it and turning it on puts the intake down
         gamepad.getGamepadButton(GamepadKeys.Button.A)
                 .whenPressed(() -> {
                     if (!Flower.ENABLED) return;
                     flowerWanted = !flowerWanted;
-                    if (flowerWanted) battleMode = false;
+                    if (flowerWanted) pivotSubsystem.deploy();
                 });
 
+        // Gate override, right bumper toggles the gate open
+        gamepad.getGamepadButton(GamepadKeys.Button.RIGHT_BUMPER)
+                .whenPressed(() -> gateOverride = !gateOverride);
+
         // Shoot, waits for the aim unless auto aim is off (then we're aiming by hand)
-        new Trigger(() -> gamepad.getTrigger(GamepadKeys.Trigger.RIGHT_TRIGGER) > TRIGGER_THRESHOLD)
+        new Trigger(this::shootHeld)
                 .whileActiveOnce(new ShootCommand(
                         shooterSubsystem,
                         gateSubsystem,
@@ -178,29 +197,23 @@ public class ChunkMode extends CommandOpMode {
                                 && limelightSubsystem.hasTarget()),
                         this::shootRpm));
 
-        // Turret home, turns auto aim off or it would pull the turret right back
+        // Hoods, dpad up/down is pollen and right/left is nectar
         gamepad.getGamepadButton(GamepadKeys.Button.DPAD_UP)
-                .whenPressed(() -> {
-                    autoAimEnabled = false;
-                    turretSubsystem.aimForward();
-                });
-
-        // Auto aim toggle
+                .whenPressed(() -> pollen = Range.clip(pollen + HOOD_STEP, 0, 1));
         gamepad.getGamepadButton(GamepadKeys.Button.DPAD_DOWN)
-                .whenPressed(() -> {
-                    autoAimEnabled = !autoAimEnabled;
-                    if (!autoAimEnabled) turretSubsystem.holdCurrentAngle();
-                });
-
-        // Manual turret rotation, takes the turret from auto aim while held
-        gamepad.getGamepadButton(GamepadKeys.Button.DPAD_LEFT)
-                .whileHeld(new ManualTurretCommand(turretSubsystem, false));
+                .whenPressed(() -> pollen = Range.clip(pollen - HOOD_STEP, 0, 1));
         gamepad.getGamepadButton(GamepadKeys.Button.DPAD_RIGHT)
-                .whileHeld(new ManualTurretCommand(turretSubsystem, true));
+                .whenPressed(() -> nectar = Range.clip(nectar + HOOD_STEP, 0, 1));
+        gamepad.getGamepadButton(GamepadKeys.Button.DPAD_LEFT)
+                .whenPressed(() -> nectar = Range.clip(nectar - HOOD_STEP, 0, 1));
     }
 
     private boolean intakeHeld() {
         return gamepad.getTrigger(GamepadKeys.Trigger.LEFT_TRIGGER) > TRIGGER_THRESHOLD;
+    }
+
+    private boolean shootHeld() {
+        return gamepad.getTrigger(GamepadKeys.Trigger.RIGHT_TRIGGER) > TRIGGER_THRESHOLD;
     }
 
     private boolean outtakeHeld() {
@@ -208,7 +221,12 @@ public class ChunkMode extends CommandOpMode {
     }
 
     private double shootRpm() {
-        double distance = limelightSubsystem.getDistance();
-        return Double.isNaN(distance) ? Double.NaN : Shooter.SHOT_TABLE.get(distance).rpm;
+        return Shooter.SHOT_TABLE.get(shotDistance()).rpm;
+    }
+
+    // limelight distance if it's on and sees the tag, otherwise the fixed shot
+    private double shotDistance() {
+        double distance = Limelight.ENABLED ? limelightSubsystem.getDistance() : Double.NaN;
+        return Double.isNaN(distance) ? Shooter.FIXED_DISTANCE_IN : distance;
     }
 }

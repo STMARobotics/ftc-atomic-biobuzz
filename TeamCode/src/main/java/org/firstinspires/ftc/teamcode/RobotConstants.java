@@ -8,7 +8,8 @@ public final class RobotConstants {
     private RobotConstants() {}
 
     public static final class HardwareNames {
-        public static final String FLYWHEEL_MOTOR = "flywheelMotor";
+        public static final String FLYWHEEL_MOTOR = "flywheelMotor"; // the one with the encoder
+        public static final String FLYWHEEL_MOTOR_2 = "flywheelMotor2";
         public static final String TURRET_MOTOR = "turretMotor";
         public static final String TURRET_ENCODER = "yawEncoder";
         public static final String PIVOT_SERVO = "pivotServo";
@@ -39,13 +40,21 @@ public final class RobotConstants {
     public static final class Shooter {
         public static final double TICKS_PER_REV = 28;
         public static final double READY_TOLERANCE_RPM = 75;
-        public static final double SHOOT_RPM = 3276; // TUNE, motor rpm not wheel rpm
+
+        // flywheel control, power = kV * target + kP * error
+        // TUNE kV first with kP at 0: bump it until the flywheel settles right on target
+        public static final double kV = 1.0 / 5800; // TUNE, about 1 / the motor's real top speed
+        public static final double kP = 1.0; // TUNE, 100 rpm low = 5% more power
+        public static final double SHOOT_RPM = 4500; // TUNE, motor rpm not wheel rpm
+        public static final double GATE_OPEN_RPM = 3800; // gate opens once the flywheel is past this
 
         // distance to the goal (in) -> flywheel rpm, pollen hood, nectar hood
         // TUNE (add a point every time you test a shot)
         public static final ShotLookupTable SHOT_TABLE = new ShotLookupTable()
-                .add(24, SHOOT_RPM, 0.5, 0.5)
-                .add(144, SHOOT_RPM, 0.5, 0.5);
+                .add(24, SHOOT_RPM, 0.5, 0.5);
+
+        // with the limelight off every shot uses the table at this distance, so it's one fixed shot
+        public static final double FIXED_DISTANCE_IN = 24; // TUNE
 
         private Shooter() {}
     }
@@ -65,7 +74,7 @@ public final class RobotConstants {
         // true if the encoder angle goes up when the turret turns clockwise (seen from above)
         public static final boolean ENCODER_CLOCKWISE_POSITIVE = true; // TUNE
 
-        public static final double kP = 0.5; // TUNE
+        public static final double kP = 0.0; // TUNE
         public static final double kI = 0.0;
         public static final double kD = 0.0;
 
@@ -82,13 +91,11 @@ public final class RobotConstants {
     }
 
     public static final class IntakePivot {
-        // servo positions, TUNE
-        public static final double FULLY_STOWED = 1.0; // battle mode
-        public static final double STOWED = 0.5;
-        public static final double DEPLOYED = 0.0;
+        public static final boolean ENABLED = true; // false leaves the servo limp
 
-        // how long the servo takes to get there, we can't read its position
-        public static final long SETTLE_MS = 400; // TUNE
+        // servo positions, TUNE
+        public static final double FULLY_STOWED = 1.0; // battle mode, also where it starts
+        public static final double DEPLOYED = 0.0;
 
         private IntakePivot() {}
     }
@@ -100,8 +107,6 @@ public final class RobotConstants {
         public static final double STOWED = 0.0;
         public static final double DEPLOYED = 1.0;
 
-        public static final long SETTLE_MS = 400; // TUNE
-
         private Flower() {}
     }
 
@@ -112,16 +117,13 @@ public final class RobotConstants {
         public static final double INTAKE_POWER = 1.0;
         public static final double OUTTAKE_POWER = -1.0;
 
-        // idle runs on velocity control so it actually turns
-        public static final double IDLE_RPM = 100; // TUNE
-
         private IntakeWheels() {}
     }
 
     public static final class ShooterGate {
         // servo positions, TUNE
-        public static final double OPEN = 1.0;
-        public static final double CLOSED = 0.0;
+        public static final double OPEN = 0.0;
+        public static final double CLOSED = 1.0;
 
         private ShooterGate() {}
     }
