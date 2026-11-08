@@ -18,7 +18,7 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
  * Everything here is a guess at the real robot (TUNE), change the numbers to match what you see.
  * Field coordinates are Pedro's: inches, 0-144, heading radians counterclockwise.
  */
-final class SimPhysics {
+public final class SimPhysics {
 
     // ---- drivetrain: 312 rpm 5203 at 1:1, 104mm goBILDA mecanum, 36 lb ----
     static final double DRIVE_MAX_IN_PER_SEC = 312 / 60.0 * Math.PI * 4.094 * 0.85; // ~57 in/s loaded
@@ -65,12 +65,18 @@ final class SimPhysics {
     volatile double vTurn = 0;
 
     volatile double batteryVolts = BATTERY_REST_VOLTS;
-    volatile double flywheelRpm = 0;
+    // fault injection: a tired battery rests lower
+    public volatile double batteryRestVolts = BATTERY_REST_VOLTS;
+    // fault injection: the next ball fed into the shooter sticks until the intake reverses briefly
+    public volatile boolean jamNextBall = false;
+    public volatile boolean jammed = false;
+    private double reverseTimer = 0;
+    public volatile double flywheelRpm = 0;
     volatile double intakeRpm = 0;
     volatile double turretDeg = TURRET_START_DEG;
 
-    volatile int balls = PRELOAD_BALLS;
-    volatile int shotsLaunched = 0;
+    public volatile int balls = PRELOAD_BALLS;
+    public volatile int shotsLaunched = 0;
     private double feedTimer = 0;
     private double pickupTimer = 0;
     private double outtakeTimer = 0;
@@ -126,6 +132,9 @@ final class SimPhysics {
         placeRobot(72, 72, 0);
         balls = PRELOAD_BALLS;
         shotsLaunched = 0;
+        jamNextBall = false;
+        jammed = false;
+        batteryRestVolts = BATTERY_REST_VOLTS;
         flywheelRpm = 0;
         intakeRpm = 0;
         world.otos().resetTracking();
@@ -218,7 +227,7 @@ final class SimPhysics {
         double sag = INTAKE_SAG_VOLTS * Math.abs(intakePower)
                 + FLYWHEEL_SAG_VOLTS * Math.abs(flyPower)
                 + DRIVE_SAG_VOLTS * drivePower;
-        batteryVolts += (BATTERY_REST_VOLTS - sag - batteryVolts) * (1 - Math.exp(-dt / 0.05));
+        batteryVolts += (batteryRestVolts - sag - batteryVolts) * (1 - Math.exp(-dt / 0.05));
 
         stepBalls(dt);
     }
@@ -233,7 +242,11 @@ final class SimPhysics {
 
         if (gateOpen && feed > 0.3 && balls > 0) {
             feedTimer += dt * feed;
-            if (feedTimer >= FEED_SECONDS_PER_BALL) {
+            if (feedTimer >= FEED_SECONDS_PER_BALL && jamNextBall) {
+                jamNextBall = false;
+                jammed = true;
+            }
+            if (feedTimer >= FEED_SECONDS_PER_BALL && !jammed) {
                 feedTimer = 0;
                 balls--;
                 if (flywheelRpm > SHOT_MIN_RPM) {
@@ -255,6 +268,13 @@ final class SimPhysics {
             }
         } else {
             pickupTimer = 0;
+        }
+
+        // a short reverse frees a stuck ball
+        reverseTimer = feed < -0.2 ? reverseTimer + dt : 0;
+        if (jammed && reverseTimer >= 0.08) {
+            jammed = false;
+            feedTimer = 0;
         }
 
         if (feed < -0.3 && balls > 0) {

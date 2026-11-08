@@ -19,6 +19,19 @@ R gate override, G flower, arrows for the dpad.
 The first run downloads nothing new (it uses the same Gradle cache as the robot build), but the
 page loads three.js from a CDN, so you need internet the first time you open it.
 
+## Automatic tests (run before every comp)
+
+```
+.\gradlew -p sim test
+```
+
+Runs the real OpModes through scenarios in ~30 s and checks what physically happened: nothing
+moves in TeleOp INIT, RT fires every ball and the shot counter matches, LT/battle mode, a weak
+battery still shoots (low rpm fallback), a jammed ball gets backed out, unplugged devices are
+reported instead of crashing, no flywheel encoder still shoots, auto drives its path and teleop
+keeps auto's pose. Tests live in `src/test/java/sim/RobotBehaviorTest.java`. The sim can break
+things on purpose for them: `world.unplug(name)`, `physics.batteryRestVolts`, `physics.jamNextBall`.
+
 ## What it checks for you
 
 - **Moving during INIT**: any servo move or motor power before START shows a warning

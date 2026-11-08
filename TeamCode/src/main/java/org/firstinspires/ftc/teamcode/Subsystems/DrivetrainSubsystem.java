@@ -80,6 +80,13 @@ public class DrivetrainSubsystem extends SubsystemBase {
     }
 
     /**
+     * Sets which field heading is "away from the drivers" (from the alliance, see Alliance)
+     */
+    public void setDriverForwardHeading(double headingRad) {
+        driverForwardHeading = headingRad;
+    }
+
+    /**
      * Starts following a path. Build paths with {@code com.pedropathing.api.Paths.line/curve}.
      */
     public void followPath(Path path) {

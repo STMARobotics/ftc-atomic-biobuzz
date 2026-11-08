@@ -35,6 +35,8 @@ public final class SimWorld {
     private final AnalogInput turretEncoder;
 
     private final Set<String> requested = Collections.synchronizedSet(new LinkedHashSet<>());
+    // fault injection: names in here act like they're missing from the Driver Hub config
+    private final Set<String> unplugged = Collections.synchronizedSet(new LinkedHashSet<>());
     private final Set<String> warnings = Collections.synchronizedSet(new LinkedHashSet<>());
 
     public SimWorld() {
@@ -46,6 +48,33 @@ public final class SimWorld {
             return Fakes.NOT_HANDLED;
         });
         turretEncoder = new AnalogInput(analog, 0);
+    }
+
+    /**
+     * Fault injection: the next OpMode's hardwareMap.get(name) fails like it's missing from the config
+     */
+    public void unplug(String... names) {
+        unplugged.addAll(java.util.Arrays.asList(names));
+    }
+
+    public void plugEverythingIn() {
+        unplugged.clear();
+    }
+
+    public SimPhysics physics() {
+        return physics;
+    }
+
+    public Phase phase() {
+        return phase;
+    }
+
+    public SimServo servoState(String name) {
+        return servo(name);
+    }
+
+    public SimMotor motorState(String name) {
+        return motor(name);
     }
 
     VoltageSensor batterySensor() {
@@ -60,6 +89,10 @@ public final class SimWorld {
      * Hands out a fake device for hardwareMap.get(type, name)
      */
     Object device(Class<?> type, String name) {
+        if (unplugged.contains(name)) {
+            requested.add(type.getSimpleName() + " \"" + name + "\" (UNPLUGGED)");
+            return null;
+        }
         requested.add(type.getSimpleName() + " \"" + name + "\"");
         if (DcMotorSimple.class.isAssignableFrom(type)) return motor(name).device;
         if (Servo.class.isAssignableFrom(type)) return servo(name).device;
@@ -133,7 +166,7 @@ public final class SimWorld {
         if (warnings.add(message)) System.out.println("[sim] WARNING: " + message);
     }
 
-    List<String> warnings() {
+    public List<String> warnings() {
         synchronized (warnings) {
             return new ArrayList<>(warnings);
         }

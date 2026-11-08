@@ -8,6 +8,7 @@ import com.seattlesolvers.solverslib.command.SubsystemBase;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.RobotConstants.HardwareNames;
 import org.firstinspires.ftc.teamcode.RobotConstants.Limelight;
+import org.firstinspires.ftc.teamcode.util.Devices;
 
 public class LimelightSubsystem extends SubsystemBase {
 
@@ -20,13 +21,12 @@ public class LimelightSubsystem extends SubsystemBase {
     private boolean hadTarget = false;
     private long targetChangedNanos = System.nanoTime();
 
-    // null when Limelight.ENABLED is false, then there's never a target
+    // null when Limelight.ENABLED is false or it's missing from the config, then there's never a target
     public LimelightSubsystem(HardwareMap hardwareMap) {
-        if (!Limelight.ENABLED) {
-            limelight = null;
-            return;
-        }
-        limelight = hardwareMap.get(Limelight3A.class, HardwareNames.LIMELIGHT);
+        limelight = Limelight.ENABLED
+                ? Devices.optional(hardwareMap, Limelight3A.class, HardwareNames.LIMELIGHT)
+                : null;
+        if (limelight == null) return;
         limelight.pipelineSwitch(Limelight.TAG_PIPELINE);
         limelight.start();
     }

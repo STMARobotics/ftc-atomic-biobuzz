@@ -74,8 +74,29 @@ a controller or keyboard. It has its own Gradle build, so the robot app build do
   Pedro's real localizer reads), `web/robot.json` (every moving part, its hinge and what drives it).
 - The robot is placeholder boxes until the CAD is exported.
 
+## Robustness pass (done 2026-11-07, all verified by sim tests)
+
+- Missing devices (anything but the drivetrain) degrade instead of crashing; INIT screen says
+  "CHECK THE ROBOT:" with what's missing, STATUS line repeats it during the match (`util/Devices`).
+- ShootCommand: low-rpm fallback after SPINUP_TIMEOUT_MS, no-encoder timed shots, jam detection
+  with a short reverse (MAX_UNJAMS), status shown as "Shooter" in telemetry.
+- Rumble: short buzz when the gate opens, 3 blips when it thinks it's empty.
+- Turret shuts itself off on impossible encoder jumps or pushing-without-moving (latched).
+- Brownout guard: drive slows down below 9V (Battery constants).
+- Auto saves its pose every loop (`util/PoseStorage`), teleop picks it up if < 2 min old.
+  `util/Alliance` sets field-centric forward (red faces +x, blue -x: VERIFY on the field).
+- Match logs: CSV every 0.1s to /sdcard/FIRST/matchlogs on the robot (`util/MatchLog`).
+- Intake ramp only slows speeding up; stopping/reversing is instant.
+- Sim: `SimEngine` (core) + `SimMain` (web); `.\gradlew -p sim test` = 8 scenario tests.
+- Field CAD is in the sim (`sim/web/models/field.glb`, converter in `sim/cad/`), orientation
+  verified against the Pedro visualizer.
+
 ## Next up
 
+0. **Make the sim accurate** so sim-tested code works on the robot: measure real numbers
+   (flywheel spin-up/top rpm, drive accel/top speed, servo travel times, battery sag) from the
+   match logs and put them in SimPhysics; add the hives tilting and a simulated Limelight
+   (tag positions are in sim/web/field_info.json).
 1. **CAD into the sim.** Export each moving part as its own .glb (intake, gate, turret, both
    flywheels, both hoods, flower bar, plus the static chassis), all in the same robot coordinates
    (robot center on the floor, +x forward). Drop them in `sim/web/models/`, then work out each

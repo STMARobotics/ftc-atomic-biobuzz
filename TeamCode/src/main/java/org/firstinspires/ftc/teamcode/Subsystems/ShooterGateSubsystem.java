@@ -7,6 +7,7 @@ import com.seattlesolvers.solverslib.command.SubsystemBase;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.RobotConstants.HardwareNames;
 import org.firstinspires.ftc.teamcode.RobotConstants.ShooterGate;
+import org.firstinspires.ftc.teamcode.util.Devices;
 
 /**
  * Gate that keeps balls out of the shooter until we're ready to shoot.
@@ -18,7 +19,7 @@ public class ShooterGateSubsystem extends SubsystemBase {
     private double writtenPosition = Double.NaN;
 
     public ShooterGateSubsystem(HardwareMap hardwareMap) {
-        gateServo = hardwareMap.get(Servo.class, HardwareNames.GATE_SERVO);
+        gateServo = Devices.optional(hardwareMap, Servo.class, HardwareNames.GATE_SERVO);
         // no close() here, nothing can move in teleop init
     }
 
@@ -33,7 +34,7 @@ public class ShooterGateSubsystem extends SubsystemBase {
     }
 
     private void write(double position) {
-        if (position == writtenPosition) return;
+        if (gateServo == null || position == writtenPosition) return;
         writtenPosition = position;
         gateServo.setPosition(position);
     }

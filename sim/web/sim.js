@@ -42,11 +42,42 @@ grid.position.y = 0.05;
 scene.add(grid);
 
 const wallMat = new THREE.MeshStandardMaterial({ color: 0xb8c4d0, transparent: true, opacity: 0.25 });
+// the CAD has real walls but no floor tiles (dropped, too heavy), so only our walls get hidden
+const placeholderField = [];
 for (const [w, d, x, z] of [[146, 1, 0, -72.5], [146, 1, 0, 72.5], [1, 146, -72.5, 0], [1, 146, 72.5, 0]]) {
   const wall = new THREE.Mesh(new THREE.BoxGeometry(w, 12, d), wallMat);
   wall.position.set(x, 6, z);
   scene.add(wall);
+  placeholderField.push(wall);
 }
+
+// the real field CAD, if there is one (see field.json). Its origin is the field center, like ours
+const fieldNodes = {};
+async function loadField() {
+  let cfg;
+  try {
+    const res = await fetch('field.json', { cache: 'no-store' });
+    if (!res.ok) return;
+    cfg = await res.json();
+  } catch {
+    return;
+  }
+  new GLTFLoader().load(`models/${cfg.file}`, (gltf) => {
+    const model = gltf.scene;
+    model.scale.setScalar(cfg.scale ?? 1);
+    model.rotation.y = (cfg.rotationYDeg ?? 0) * DEG;
+    model.traverse((o) => {
+      if (o.isMesh) {
+        o.receiveShadow = true;
+        o.castShadow = true;
+      }
+      if (o.name) fieldNodes[o.name] = o;
+    });
+    scene.add(model);
+    placeholderField.forEach((m) => { m.visible = false; });
+  }, undefined, (err) => console.warn(`couldn't load models/${cfg.file}`, err));
+}
+loadField();
 // Pedro axes at the field origin: red = +x, green = +y
 const origin = fieldToThree(0, 0).setY(0.5);
 scene.add(new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), origin, 18, 0xff5555, 4, 3));

@@ -36,6 +36,12 @@ public final class RobotConstants {
         // reading the battery is its own hardware call, so don't do it every loop
         public static final double READ_INTERVAL_MS = 250;
 
+        // brownout guard: below START the drive slows down linearly, down to MIN_DRIVE_SCALE at
+        // FLOOR. The hubs reset around 7V, losing a few inches/sec beats losing the robot. TUNE
+        public static final double BROWNOUT_START_VOLTS = 9.0;
+        public static final double BROWNOUT_FLOOR_VOLTS = 7.5;
+        public static final double BROWNOUT_MIN_DRIVE_SCALE = 0.5;
+
         private Battery() {}
     }
 
@@ -77,6 +83,20 @@ public final class RobotConstants {
         public static final double SHOT_DIP_RPM = 250;
         public static final double SHOT_RECOVER_RPM = 100;
 
+        // if the flywheel can't get within GATE_OPEN_MARGIN_RPM (low battery, drag), shoot anyway
+        // after this long once it's at least FALLBACK_MIN_FRACTION of the target. Short beats nothing
+        public static final double SPINUP_TIMEOUT_MS = 2000; // TUNE
+        public static final double FALLBACK_MIN_FRACTION = 0.9; // TUNE
+        // no encoder at all (motor missing): it runs at full power, open the gate after this long
+        public static final double BLIND_SPINUP_MS = 1500; // TUNE
+
+        // jam: gate open and feeding but no shot counted for this long -> back the balls out briefly.
+        // stops after MAX_UNJAMS tries in a row (probably just empty). needs SHOT_DIP_RPM tuned
+        public static final boolean JAM_DETECTION = true;
+        public static final double JAM_TIMEOUT_MS = 1500; // TUNE
+        public static final double UNJAM_MS = 250; // TUNE
+        public static final int MAX_UNJAMS = 2;
+
         // distance to the goal (in) -> flywheel rpm, pollen hood, nectar hood
         // TUNE (add a point every time you test a shot)
         public static final ShotLookupTable SHOT_TABLE = new ShotLookupTable()
@@ -117,6 +137,13 @@ public final class RobotConstants {
         // unwind has to travel this far before a tag sighting can end it
         public static final double UNWIND_MIN_TRAVEL_DEG = 90;
 
+        // safety (see TurretSubsystem): 312rpm at 4:1 is ~470 deg/s flat out
+        public static final double MAX_DEG_PER_SEC = 470;
+        public static final double JUMP_SLACK_DEG = 15; // encoder noise allowance per loop
+        public static final double STALL_MIN_POWER = 0.25; // pushing at least this hard...
+        public static final double STALL_MS = 400; // ...for this long...
+        public static final double STALL_MIN_TRAVEL_DEG = 2; // ...should move it more than this
+
         private Turret() {}
     }
 
@@ -150,6 +177,7 @@ public final class RobotConstants {
         public static final double INTAKE_POWER = 1.0;
         public static final double FEED_POWER = 1.0; // pushing balls through the gate into the shooter
         public static final double OUTTAKE_POWER = -1.0;
+        public static final double UNJAM_POWER = -0.6; // the shooter's short back-out pulse, TUNE
 
         // power ramps up at this rate instead of jumping, the jump is what sags the battery the most.
         // 4 = 0 to full in a quarter second. stopping is always instant

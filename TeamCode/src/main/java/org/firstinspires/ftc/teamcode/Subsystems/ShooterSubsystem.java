@@ -11,6 +11,7 @@ import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.RobotConstants.Battery;
 import org.firstinspires.ftc.teamcode.RobotConstants.HardwareNames;
 import org.firstinspires.ftc.teamcode.RobotConstants.Shooter;
+import org.firstinspires.ftc.teamcode.util.Devices;
 
 import java.util.function.DoubleSupplier;
 
@@ -47,20 +48,25 @@ public class ShooterSubsystem extends SubsystemBase {
 
     public ShooterSubsystem(HardwareMap hardwareMap, DoubleSupplier batteryVolts) {
         this.batteryVolts = batteryVolts;
-        flywheelMotor = hardwareMap.get(DcMotorEx.class, HardwareNames.FLYWHEEL_MOTOR);
-        flywheelMotor2 = hardwareMap.get(DcMotorEx.class, HardwareNames.FLYWHEEL_MOTOR_2);
-        flywheelMotor.setDirection(DcMotorSimple.Direction.REVERSE);
+        // either can be missing (see Devices). Without the encoder motor there's no rpm, so it can't shoot
+        flywheelMotor = Devices.optional(hardwareMap, DcMotorEx.class, HardwareNames.FLYWHEEL_MOTOR);
+        flywheelMotor2 = Devices.optional(hardwareMap, DcMotorEx.class, HardwareNames.FLYWHEEL_MOTOR_2);
 
         // we only need the encoder for reading, the power is ours
-        flywheelMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        flywheelMotor2.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        flywheelMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        flywheelMotor2.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        if (flywheelMotor != null) {
+            flywheelMotor.setDirection(DcMotorSimple.Direction.REVERSE);
+            flywheelMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+            flywheelMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        }
+        if (flywheelMotor2 != null) {
+            flywheelMotor2.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+            flywheelMotor2.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        }
     }
 
     @Override
     public void periodic() {
-        rpm = flywheelMotor.getVelocity() / Shooter.TICKS_PER_REV * 60.0;
+        rpm = flywheelMotor == null ? 0 : flywheelMotor.getVelocity() / Shooter.TICKS_PER_REV * 60.0;
 
         if (targetRPM <= 0) {
             power = 0;
@@ -73,8 +79,8 @@ public class ShooterSubsystem extends SubsystemBase {
 
         if (power != writtenPower) {
             writtenPower = power;
-            flywheelMotor.setPower(power);
-            flywheelMotor2.setPower(power);
+            if (flywheelMotor != null) flywheelMotor.setPower(power);
+            if (flywheelMotor2 != null) flywheelMotor2.setPower(power);
         }
 
         countShots();
@@ -156,6 +162,13 @@ public class ShooterSubsystem extends SubsystemBase {
 
     public double getRPM() {
         return rpm;
+    }
+
+    /**
+     * False when the encoder motor is missing, then rpm reads 0 and shooting falls back to timing
+     */
+    public boolean canMeasureRpm() {
+        return flywheelMotor != null;
     }
 
     public double getTargetRPM() {

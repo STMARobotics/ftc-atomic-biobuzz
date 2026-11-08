@@ -61,6 +61,19 @@ dependencies {
 
     implementation fileTree(aarJarsDir) { include '*.jar' }.builtBy('extractAars')
     implementation files(androidJar)
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// .\gradlew -p sim test   runs the real OpModes through scenarios (see src/test)
+tasks.named('test', Test) {
+    useJUnitPlatform()
+    workingDir = projectDir
+    testLogging {
+        events 'passed', 'failed', 'skipped'
+        exceptionFormat = 'full'
+    }
 }
 
 sourceSets {

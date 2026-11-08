@@ -15,6 +15,7 @@ import org.firstinspires.ftc.teamcode.RobotConstants.Flower;
 import org.firstinspires.ftc.teamcode.RobotConstants.HardwareNames;
 import org.firstinspires.ftc.teamcode.RobotConstants.IntakePivot;
 import org.firstinspires.ftc.teamcode.RobotConstants.IntakeWheels;
+import org.firstinspires.ftc.teamcode.util.Devices;
 
 /**
  * Intake pivot, intake wheels and the flower bar in one subsystem, because they share hardware:
@@ -38,6 +39,7 @@ public class IntakeSubsystem extends SubsystemBase {
     private boolean intakeRequested = false;
     private boolean feedRequested = false;
     private boolean outtakeRequested = false;
+    private boolean unjamRequested = false;
     private boolean flowerRequested = false;
 
     private double wheelPower = 0; // ramped power the motor is actually getting
@@ -52,16 +54,19 @@ public class IntakeSubsystem extends SubsystemBase {
     private double writtenFlower = Double.NaN;
     private double writtenWheels = Double.NaN;
 
+    // any of these can be missing from the config, then that part just doesn't run (see Devices)
     public IntakeSubsystem(HardwareMap hardwareMap) {
         pivotServo = IntakePivot.ENABLED
-                ? hardwareMap.get(Servo.class, HardwareNames.PIVOT_SERVO)
+                ? Devices.optional(hardwareMap, Servo.class, HardwareNames.PIVOT_SERVO)
                 : null;
-        flowerServo = hardwareMap.get(Servo.class, HardwareNames.FLOWER_SERVO);
+        flowerServo = Devices.optional(hardwareMap, Servo.class, HardwareNames.FLOWER_SERVO);
 
-        wheelMotor = hardwareMap.get(DcMotorEx.class, HardwareNames.INTAKE_MOTOR_RIGHT);
-        wheelMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        // TUNE: flip this until the wheels pull balls in
-        wheelMotor.setDirection(DcMotorSimple.Direction.REVERSE);
+        wheelMotor = Devices.optional(hardwareMap, DcMotorEx.class, HardwareNames.INTAKE_MOTOR_RIGHT);
+        if (wheelMotor != null) {
+            wheelMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+            // TUNE: flip this until the wheels pull balls in
+            wheelMotor.setDirection(DcMotorSimple.Direction.REVERSE);
+        }
         // no servo positions here, nothing can move in teleop init. Auto calls stowNow() itself
     }
 
@@ -85,12 +90,16 @@ public class IntakeSubsystem extends SubsystemBase {
         // wheels
         double target;
         if (outtakeRequested) target = IntakeWheels.OUTTAKE_POWER;
+        else if (unjamRequested) target = IntakeWheels.UNJAM_POWER;
         else if (feedRequested) target = IntakeWheels.FEED_POWER;
         else if (intakeRequested) target = IntakeWheels.INTAKE_POWER;
         else target = 0;
 
-        if (target == 0) {
-            wheelPower = 0;
+        // only speeding up is ramped (that's the current spike). Stopping, slowing down and
+        // reversing are instant, otherwise a quick unjam pulse would never actually reverse
+        if (target == 0 || Math.signum(target) != Math.signum(wheelPower)) wheelPower = 0;
+        if (Math.abs(target) <= Math.abs(wheelPower)) {
+            wheelPower = target;
         } else {
             double maxStep = IntakeWheels.RAMP_PER_SEC * dt;
             wheelPower += Range.clip(target - wheelPower, -maxStep, maxStep);
@@ -111,6 +120,13 @@ public class IntakeSubsystem extends SubsystemBase {
         outtakeRequested = on;
     }
 
+    /**
+     * ShootCommand pulses this to back a stuck ball out, beats feeding but not the driver's outtake
+     */
+    public void setUnjamming(boolean on) {
+        unjamRequested = on;
+    }
+
     public void setFlowerWanted(boolean on) {
         flowerRequested = on;
     }
@@ -126,6 +142,7 @@ public class IntakeSubsystem extends SubsystemBase {
         intakeRequested = false;
         feedRequested = false;
         outtakeRequested = false;
+        unjamRequested = false;
         flowerRequested = false;
     }
 
@@ -140,6 +157,10 @@ public class IntakeSubsystem extends SubsystemBase {
         return pivotDown;
     }
 
+    public double getWheelPower() {
+        return wheelPower;
+    }
+
     private void writePivot(double position) {
         if (pivotServo == null || position == writtenPivot) return;
         writtenPivot = position;
@@ -147,18 +168,19 @@ public class IntakeSubsystem extends SubsystemBase {
     }
 
     private void writeFlower(double position) {
-        if (position == writtenFlower) return;
+        if (flowerServo == null || position == writtenFlower) return;
         writtenFlower = position;
         flowerServo.setPosition(position);
     }
 
     private void writeWheels(double power) {
-        if (power == writtenWheels) return;
+        if (wheelMotor == null || power == writtenWheels) return;
         writtenWheels = power;
         wheelMotor.setPower(power);
     }
 
     public double getWheelRPM() {
+        if (wheelMotor == null) return 0;
         return wheelMotor.getVelocity() / IntakeWheels.TICKS_PER_REV * 60.0;
     }
 
@@ -166,7 +188,7 @@ public class IntakeSubsystem extends SubsystemBase {
         telemetry.addData("Intake pivot", pivotDown ? "down" : "stowed");
         telemetry.addData("Intake power", "%.2f", wheelPower);
         telemetry.addData("Intake RPM", "%.0f", getWheelRPM());
-        if (Debug.EXTRA_TELEMETRY) {
+        if (Debug.EXTRA_TELEMETRY && wheelMotor != null) {
             telemetry.addData("Intake current (A)", "%.1f", wheelMotor.getCurrent(CurrentUnit.AMPS));
         }
         telemetry.addData("Flower", flowerOut ? "out" : "stowed");
