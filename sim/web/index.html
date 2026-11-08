@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BioBuzz Sim</title>
+<style>
+  :root {
+    --bg: #14171c; --panel: rgba(20, 24, 30, 0.92); --line: #2c333d; --text: #e6e9ee;
+    --muted: #8c96a3; --accent: #f2b632; --ok: #4cc28a; --bad: #ff6b6b; --warn: #f5a524;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 13px/1.4 system-ui, -apple-system, Segoe UI, sans-serif; overflow: hidden; }
+  #view { position: fixed; inset: 0; }
+  .panel { position: fixed; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 12px; backdrop-filter: blur(6px); }
+  #ds { top: 12px; left: 12px; width: 300px; }
+  #tele { top: 12px; right: 12px; width: 330px; max-height: calc(100% - 24px); overflow: auto; }
+  h2 { margin: 0 0 8px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  select, button { font: inherit; color: var(--text); background: #222832; border: 1px solid var(--line);
+    border-radius: 6px; padding: 6px 10px; }
+  select { width: 100%; margin-bottom: 8px; }
+  .row { display: flex; gap: 6px; margin-bottom: 8px; }
+  .row button { flex: 1; }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: .4; }
+  button.go { background: #2b4a37; }
+  button.stop { background: #4a2b2b; }
+  #phase { font-weight: 600; }
+  .phase-RUNNING { color: var(--ok); } .phase-INIT { color: var(--accent); } .phase-STOPPED, .phase-IDLE { color: var(--muted); }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 8px 0; font-variant-numeric: tabular-nums; }
+  .kv span:nth-child(odd) { color: var(--muted); }
+  #telemetry { font: 12px/1.45 ui-monospace, Consolas, monospace; white-space: pre-wrap; }
+  #warnings div { color: var(--warn); margin-top: 4px; }
+  #error { color: var(--bad); font: 11px/1.35 ui-monospace, Consolas, monospace; white-space: pre-wrap;
+    max-height: 200px; overflow: auto; margin-top: 6px; }
+  #help { color: var(--muted); font-size: 12px; margin-top: 8px; }
+  #help b { color: var(--text); font-weight: 600; }
+  label { color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  @media (max-width: 760px) {
+    #ds { width: auto; right: 12px; } #tele { top: auto; bottom: 12px; left: 12px; width: auto; max-height: 40%; }
+  }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="view"></div>
+
+<div id="ds" class="panel">
+  <h2>Driver Station</h2>
+  <select id="opmode"></select>
+  <div class="row">
+    <button id="init">INIT</button>
+    <button id="start" class="go">START</button>
+    <button id="stop" class="stop">STOP</button>
+  </div>
+  <div>Phase: <span id="phase">-</span></div>
+  <div class="kv">
+    <span>Controller</span><span id="pad">none, press a button</span>
+    <span>Battery</span><span id="battery">-</span>
+    <span>Flywheel</span><span id="fly">-</span>
+    <span>Balls held</span><span id="balls">-</span>
+    <span>Shots</span><span id="shots">-</span>
+    <span>Pose</span><span id="pose">-</span>
+  </div>
+  <div class="row">
+    <button id="reset">Reset robot</button>
+    <label><input type="checkbox" id="follow" checked> Follow</label>
+  </div>
+  <div id="warnings"></div>
+  <div id="error"></div>
+  <div id="help">
+    Gamepad works like the real one. Keyboard: <b>WASD</b> drive, <b>Q/E</b> turn,
+    <b>Shift</b> intake (LT), <b>Space</b> shoot (RT), <b>F</b> outtake (B), <b>X</b> battle,
+    <b>R</b> gate override (RB), <b>G</b> flower (A), <b>arrows</b> dpad, <b>Enter</b> start button.
+  </div>
+</div>
+
+<div id="tele" class="panel">
+  <h2>Telemetry</h2>
+  <div id="telemetry">-</div>
+</div>
+
+<script type="module" src="sim.js"></script>
+</body>
+</html>

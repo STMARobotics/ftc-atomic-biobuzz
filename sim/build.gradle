@@ -1,0 +1,90 @@
+// Desktop simulator: compiles the real TeamCode against the real FTC SDK / SolversLib / Pedro jars
+// and runs it against fake hardware. See README.md.
+plugins {
+    id 'java'
+    id 'application'
+}
+
+repositories {
+    mavenCentral()
+    google()
+    maven { url = 'https://repo.dairy.foundation/releases/' }
+}
+
+// android.jar gives us the android.* classes the SDK references (we shadow the few that get called)
+def localProps = new Properties()
+def localPropsFile = file('../local.properties')
+if (localPropsFile.exists()) localPropsFile.withInputStream { localProps.load(it) }
+def sdkDir = localProps.getProperty('sdk.dir') ?: System.getenv('ANDROID_HOME')
+def androidJar = file("${sdkDir}/platforms/android-34/android.jar")
+
+configurations {
+    // Android libraries ship as .aar, we pull classes.jar out of each one
+    aar { transitive = false }
+}
+
+def aarJarsDir = layout.buildDirectory.dir('aar-jars')
+
+tasks.register('extractAars') {
+    def aarFiles = configurations.aar
+    def outDir = aarJarsDir
+    inputs.files(aarFiles)
+    outputs.dir(outDir)
+    doLast {
+        def out = outDir.get().asFile
+        out.deleteDir()
+        out.mkdirs()
+        aarFiles.each { File aar ->
+            new java.util.zip.ZipFile(aar).withCloseable { zip ->
+                def entry = zip.getEntry('classes.jar')
+                if (entry != null) {
+                    new File(out, aar.name.replace('.aar', '.jar')).withOutputStream { os ->
+                        os << zip.getInputStream(entry)
+                    }
+                }
+            }
+        }
+    }
+}
+
+dependencies {
+    // same versions as TeamCode/build.gradle and build.dependencies.gradle
+    aar 'org.firstinspires.ftc:RobotCore:12.0.0@aar'
+    aar 'org.firstinspires.ftc:Hardware:12.0.0@aar'
+    aar 'org.firstinspires.ftc:FtcCommon:12.0.0@aar'
+    aar 'org.solverslib:core:0.3.6@aar'
+    aar 'com.pedropathing:revhub:3.0.1@aar'
+
+    implementation 'com.pedropathing:core:3.0.1'
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib:2.3.21'
+    implementation 'org.ejml:ejml-simple:0.39'
+
+    implementation fileTree(aarJarsDir) { include '*.jar' }.builtBy('extractAars')
+    implementation files(androidJar)
+}
+
+sourceSets {
+    main {
+        java {
+            // the real robot code, compiled as-is
+            srcDir '../TeamCode/src/main/java'
+            // Pedro's tuning OpModes need libraries the sim doesn't load
+            exclude 'org/firstinspires/ftc/teamcode/pedro/Tuning.java'
+            exclude 'org/firstinspires/ftc/teamcode/pedro/procedures/**'
+        }
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-Xlint:-options']
+}
+
+application {
+    mainClass = 'sim.SimMain'
+}
+
+tasks.named('run', JavaExec) {
+    workingDir = projectDir
+    standardInput = System.in
+}

@@ -16,6 +16,10 @@ public class LimelightSubsystem extends SubsystemBase {
     private double lastTimestamp = -1;
     private boolean newFrame = false;
 
+    // when the tag last showed up / went away, for the seesaw check
+    private boolean hadTarget = false;
+    private long targetChangedNanos = System.nanoTime();
+
     // null when Limelight.ENABLED is false, then there's never a target
     public LimelightSubsystem(HardwareMap hardwareMap) {
         if (!Limelight.ENABLED) {
@@ -35,6 +39,12 @@ public class LimelightSubsystem extends SubsystemBase {
         double timestamp = result == null ? lastTimestamp : result.getTimestamp();
         newFrame = timestamp != lastTimestamp;
         lastTimestamp = timestamp;
+
+        boolean has = hasTarget();
+        if (has != hadTarget) {
+            hadTarget = has;
+            targetChangedNanos = System.nanoTime();
+        }
     }
 
     /**
@@ -52,6 +62,28 @@ public class LimelightSubsystem extends SubsystemBase {
         return result != null
                 && result.isValid()
                 && result.getStaleness() <= Limelight.MAX_STALENESS_MS;
+    }
+
+    /**
+     * How long the tag has been in view without dropping out, 0 if we can't see it
+     */
+    public double msTargetVisible() {
+        return hadTarget ? (System.nanoTime() - targetChangedNanos) / 1e6 : 0;
+    }
+
+    /**
+     * How long the tag has been out of view, 0 if we can see it
+     */
+    public double msTargetHidden() {
+        return hadTarget ? 0 : (System.nanoTime() - targetChangedNanos) / 1e6;
+    }
+
+    /**
+     * The tag is hidden when the seesaw is tipped toward us, so seeing it steadily means we can score.
+     * Only trust this once we're parked facing the target.
+     */
+    public boolean seesawScorable() {
+        return msTargetVisible() >= Limelight.SEESAW_CONFIRM_MS;
     }
 
     /**
@@ -89,7 +121,12 @@ public class LimelightSubsystem extends SubsystemBase {
     }
 
     public void telemetrize(Telemetry telemetry) {
+        if (limelight == null) {
+            telemetry.addData("Limelight", "off");
+            return;
+        }
         telemetry.addData("Limelight has target", hasTarget());
+        telemetry.addData("Seesaw scorable", seesawScorable());
         telemetry.addData("Limelight tx (deg)", "%.2f", getXOffset());
         telemetry.addData("Limelight ty (deg)", "%.2f", getYOffset());
     }

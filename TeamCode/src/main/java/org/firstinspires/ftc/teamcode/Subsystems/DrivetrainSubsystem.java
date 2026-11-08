@@ -10,6 +10,7 @@ import com.qualcomm.robotcore.util.Range;
 import com.seattlesolvers.solverslib.command.SubsystemBase;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
+import org.firstinspires.ftc.teamcode.RobotConstants.Drive;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 
 /**
@@ -41,7 +42,7 @@ public class DrivetrainSubsystem extends SubsystemBase {
     }
 
     /**
-     * Field centric drive. Inputs are squared for finer control at low speeds (tbd if we keep squared).
+     * Field centric drive. Inputs are curved by Drive.STICK_EXPONENT for finer control at low speeds.
      * @param forward speed away from the driver in range [-1, 1]
      * @param strafe speed to the driver's left in range [-1, 1]
      * @param turn rotation speed in range [-1, 1], counterclockwise positive
@@ -57,7 +58,7 @@ public class DrivetrainSubsystem extends SubsystemBase {
     }
 
     /**
-     * Robot centric drive. Inputs are squared for finer control at low speeds (just don't use this).
+     * Robot centric drive. Inputs are curved like drive() (just don't use this).
      * @param forward speed toward the front of the robot in range [-1, 1]
      * @param strafe speed toward the left of the robot in range [-1, 1]
      * @param turn rotation speed in range [-1, 1], counterclockwise positive
@@ -144,10 +145,10 @@ public class DrivetrainSubsystem extends SubsystemBase {
 
     private static DrivePowers scaledPowers(double forward, double strafe, double turn, double speedScale) {
         double scale = Range.clip(speedScale, 0.0, 1.0);
-        return new DrivePowers(square(forward) * scale, square(strafe) * scale, square(turn) * scale);
+        return new DrivePowers(curve(forward) * scale, curve(strafe) * scale, curve(turn) * scale);
     }
 
-    private static double square(double value) {
-        return Math.copySign(value * value, value);
+    private static double curve(double value) {
+        return Math.copySign(Math.pow(Math.abs(value), Drive.STICK_EXPONENT), value);
     }
 }

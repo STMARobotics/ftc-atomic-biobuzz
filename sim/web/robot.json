@@ -1,0 +1,68 @@
+{
+  "_help": [
+    "Every moving part of the robot and what drives it. All numbers are inches in the ROBOT frame:",
+    "+x forward, +y up (0 = floor), +z right, origin = robot center on the floor.",
+    "Placeholder parts use 'box' [sx,sy,sz] or 'cylinder' {radius,width} centered at 'center'.",
+    "To use CAD: export a part as .glb in robot-frame coordinates (same origin for every part),",
+    "drop it in web/models/ and set 'file'. 'scale' converts its units (meters -> inches = 39.37),",
+    "'rotation' [x,y,z] degrees fixes CAD axes (Z-up CAD exports usually need [-90,0,0]).",
+    "'pivot' + 'axis' is the hinge. 'parent' makes a part ride on another (flywheels on the turret).",
+    "Drivers: servo (angle at position 0 and 1), spin (motor rpm x scale), turret (sim turret angle)."
+  ],
+  "parts": [
+    { "name": "chassis", "center": [0, 3, 0], "box": [17, 3.5, 16], "color": "#2f5d8a" },
+    { "name": "wheelFL", "center": [6.5, 2.05, -7.6], "cylinder": { "radius": 2.05, "width": 1.5 }, "color": "#222222" },
+    { "name": "wheelFR", "center": [6.5, 2.05, 7.6], "cylinder": { "radius": 2.05, "width": 1.5 }, "color": "#222222" },
+    { "name": "wheelBL", "center": [-6.5, 2.05, -7.6], "cylinder": { "radius": 2.05, "width": 1.5 }, "color": "#222222" },
+    { "name": "wheelBR", "center": [-6.5, 2.05, 7.6], "cylinder": { "radius": 2.05, "width": 1.5 }, "color": "#222222" },
+    { "name": "indexer", "center": [-1, 8, 0], "box": [5, 8, 4.5], "color": "#566270", "opacity": 0.55 },
+
+    {
+      "name": "turret", "pivot": [-1, 12, 0], "axis": [0, 1, 0],
+      "driver": { "type": "turret", "forwardDeg": 270, "clockwisePositive": true },
+      "center": [-1, 13, 0], "box": [8, 2, 8], "color": "#8a8f98"
+    },
+    {
+      "name": "pollenFlywheel", "parent": "turret", "pivot": [1, 15.5, -2.3], "axis": [0, 0, 1],
+      "driver": { "type": "spin", "motor": "flywheelMotor", "scale": 0.5 },
+      "center": [1, 15.5, -2.3], "cylinder": { "radius": 1.5, "width": 1.0 }, "color": "#e0b422"
+    },
+    {
+      "name": "nectarFlywheel", "parent": "turret", "pivot": [1, 15.5, 2.3], "axis": [0, 0, 1],
+      "driver": { "type": "spin", "motor": "flywheelMotor", "scale": 0.5 },
+      "center": [1, 15.5, 2.3], "cylinder": { "radius": 1.5, "width": 1.0 }, "color": "#d9772b"
+    },
+    {
+      "name": "pollenHood", "parent": "turret", "pivot": [2.6, 17.2, -2.3], "axis": [0, 0, 1],
+      "driver": { "type": "servo", "servo": "pollenHoodServo", "angleAt0": -15, "angleAt1": 15 },
+      "center": [4.2, 17.2, -2.3], "box": [3.2, 0.3, 1.4], "color": "#c9ccd1"
+    },
+    {
+      "name": "nectarHood", "parent": "turret", "pivot": [2.6, 17.2, 2.3], "axis": [0, 0, 1],
+      "driver": { "type": "servo", "servo": "nectarHoodServo", "angleAt0": -15, "angleAt1": 15 },
+      "center": [4.2, 17.2, 2.3], "box": [3.2, 0.3, 1.4], "color": "#c9ccd1"
+    },
+    {
+      "name": "gate", "pivot": [-1, 11.8, -2.2], "axis": [1, 0, 0],
+      "driver": { "type": "servo", "servo": "gateServo", "angleAt0": 80, "angleAt1": 0 },
+      "center": [-1, 11.8, 0], "box": [4, 0.4, 4.4], "color": "#d64545"
+    },
+    {
+      "name": "intake", "pivot": [8.5, 4.5, 0], "axis": [0, 0, 1],
+      "driver": { "type": "servo", "servo": "pivotServo", "angleAt0": -30, "angleAt1": 80 },
+      "center": [12.5, 4.5, 0], "box": [8, 1, 14], "color": "#4e7d4e"
+    },
+    {
+      "name": "intakeRoller", "parent": "intake", "pivot": [16.2, 4.5, 0], "axis": [0, 0, 1],
+      "driver": { "type": "spin", "motor": "intakeMotorRight", "scale": -2.0 },
+      "center": [16.2, 4.5, 0], "cylinder": { "radius": 1.3, "width": 13 }, "color": "#e07b39"
+    },
+    {
+      "name": "flower", "pivot": [8.5, 7, 0], "axis": [0, 0, 1],
+      "driver": { "type": "servo", "servo": "flowerServo", "angleAt0": 90, "angleAt1": -10 },
+      "center": [12, 7, 0], "box": [7, 0.6, 10], "color": "#c46aa8"
+    }
+  ],
+  "ballStack": { "bottom": [-1, 5.5, 0], "spacing": 3.0, "radius": 1.4, "color": "#ffd23f" },
+  "launcher": { "point": [3, 17.5, 0], "elevationDeg": 72, "inPerSecAtTarget": 230, "targetRpm": 3700 }
+}

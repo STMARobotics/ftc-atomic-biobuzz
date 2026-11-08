@@ -17,11 +17,26 @@ public final class RobotConstants {
         public static final String FLOWER_SERVO = "flowerServo";
         public static final String POLLEN_HOOD_SERVO = "pollenHoodServo";
         public static final String NECTAR_HOOD_SERVO = "nectarHoodServo";
-        public static final String INTAKE_MOTOR_LEFT = "intakeMotorLeft";
-        public static final String INTAKE_MOTOR_RIGHT = "intakeMotorRight";
+        public static final String INTAKE_MOTOR_RIGHT = "intakeMotorRight"; // the left one isn't plugged in
         public static final String LIMELIGHT = "limelight";
 
         private HardwareNames() {}
+    }
+
+    public static final class Debug {
+        // extra telemetry that costs loop time (intake current is a separate hardware read)
+        public static final boolean EXTRA_TELEMETRY = false;
+
+        private Debug() {}
+    }
+
+    public static final class Battery {
+        // the shooter feedforward is tuned at this voltage and scaled up as the battery drops
+        public static final double NOMINAL_VOLTS = 12.0;
+        // reading the battery is its own hardware call, so don't do it every loop
+        public static final double READ_INTERVAL_MS = 250;
+
+        private Battery() {}
     }
 
     public static final class Limelight {
@@ -34,6 +49,10 @@ public final class RobotConstants {
         public static final double CAMERA_ANGLE_DEG = 25.0;
         public static final double TAG_HEIGHT_IN = 29.5;
 
+        // the tag is hidden when the seesaw is tipped toward us (can't score then).
+        // it has to be seen this long in a row before we trust that we can score
+        public static final double SEESAW_CONFIRM_MS = 300; // TUNE
+
         private Limelight() {}
     }
 
@@ -41,12 +60,22 @@ public final class RobotConstants {
         public static final double TICKS_PER_REV = 28;
         public static final double READY_TOLERANCE_RPM = 75;
 
-        // flywheel control, power = kV * target + kP * error
-        // TUNE kV first with kP at 0: bump it until the flywheel settles right on target
-        public static final double kV = 1.0 / 5800; // TUNE, about 1 / the motor's real top speed
-        public static final double kP = 1.0; // TUNE, 100 rpm low = 5% more power
-        public static final double SHOOT_RPM = 4500; // TUNE, motor rpm not wheel rpm
-        public static final double GATE_OPEN_RPM = 3800; // gate opens once the flywheel is past this
+        // flywheel control, power = (kS + kV * target) * (12V / battery) + kP * error
+        // TUNE in ShotTuner: kV first with kP at 0, bump it until the flywheel settles right on target
+        public static final double kS = 0.0; // TUNE, power it takes just to get past the friction
+        public static final double kV = 1.0 / 4100; // TUNE, about 1 / the top speed at 12V (it maxes out around 4000)
+        public static final double kP = 0.0005; // TUNE, 100 rpm low = 5% more power
+
+        // motor rpm, not wheel rpm. has to be below what it can actually reach (~4000) or there's
+        // no power left to recover after each ball. TUNE, and retune the hoods if you change it
+        public static final double SHOOT_RPM = 3700;
+        // gate opens once the flywheel is this close to the target
+        public static final double GATE_OPEN_MARGIN_RPM = 150;
+
+        // shot counting: a ball going through pulls the flywheel down this far, then it recovers.
+        // TUNE by watching "Shots fired" while feeding in ShotTuner
+        public static final double SHOT_DIP_RPM = 250;
+        public static final double SHOT_RECOVER_RPM = 100;
 
         // distance to the goal (in) -> flywheel rpm, pollen hood, nectar hood
         // TUNE (add a point every time you test a shot)
@@ -62,6 +91,7 @@ public final class RobotConstants {
     public static final class Turret {
         public static final boolean ENABLED = false; // yaw encoder isn't plugged in, motor stays at 0 until this is true
 
+        // gear stack: 0V is 0 deg and about 3.3V is about 540 deg, TUNE both
         public static final double ENCODER_MAX_VOLTS = 3.3;
         public static final double ENCODER_RANGE_DEG = 540;
 
@@ -97,11 +127,14 @@ public final class RobotConstants {
         public static final double FULLY_STOWED = 1.0; // battle mode, also where it starts
         public static final double DEPLOYED = 0.0;
 
+        // how long the pivot takes to get down, the flower waits this long before it deploys
+        public static final double TRAVEL_MS = 400; // TUNE
+
         private IntakePivot() {}
     }
 
     public static final class Flower {
-        public static final boolean ENABLED = false; // off for the first comp, A does nothing
+        public static final boolean ENABLED = false; // off for now, A does nothing
 
         // servo positions, TUNE
         public static final double STOWED = 0.0;
@@ -113,9 +146,14 @@ public final class RobotConstants {
     public static final class IntakeWheels {
         public static final double TICKS_PER_REV = 537.7; // goBILDA 312 rpm
 
-        // motor powers, TUNE
+        // motor powers, TUNE. the intake pulls the battery down ~2V, drop these if the robot browns out
         public static final double INTAKE_POWER = 1.0;
+        public static final double FEED_POWER = 1.0; // pushing balls through the gate into the shooter
         public static final double OUTTAKE_POWER = -1.0;
+
+        // power ramps up at this rate instead of jumping, the jump is what sags the battery the most.
+        // 4 = 0 to full in a quarter second. stopping is always instant
+        public static final double RAMP_PER_SEC = 4.0; // TUNE
 
         private IntakeWheels() {}
     }
@@ -131,6 +169,10 @@ public final class RobotConstants {
     public static final class Drive {
         public static final double FULL_SPEED_SCALE = 1.0;
         public static final double SLOW_SPEED_SCALE = 0.5;
+
+        // sticks get raised to this power: 2 = half stick is quarter speed (fine control),
+        // 1 = linear (snappier). TUNE with the driver
+        public static final double STICK_EXPONENT = 2.0;
 
         private Drive() {}
     }

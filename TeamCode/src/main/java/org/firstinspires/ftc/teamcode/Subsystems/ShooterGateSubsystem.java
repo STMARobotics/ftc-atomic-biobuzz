@@ -14,7 +14,8 @@ import org.firstinspires.ftc.teamcode.RobotConstants.ShooterGate;
 public class ShooterGateSubsystem extends SubsystemBase {
 
     private final Servo gateServo;
-    private boolean open;
+    private boolean open = false;
+    private double writtenPosition = Double.NaN;
 
     public ShooterGateSubsystem(HardwareMap hardwareMap) {
         gateServo = hardwareMap.get(Servo.class, HardwareNames.GATE_SERVO);
@@ -23,12 +24,18 @@ public class ShooterGateSubsystem extends SubsystemBase {
 
     public void open() {
         open = true;
-        gateServo.setPosition(ShooterGate.OPEN);
+        write(ShooterGate.OPEN);
     }
 
     public void close() {
         open = false;
-        gateServo.setPosition(ShooterGate.CLOSED);
+        write(ShooterGate.CLOSED);
+    }
+
+    private void write(double position) {
+        if (position == writtenPosition) return;
+        writtenPosition = position;
+        gateServo.setPosition(position);
     }
 
     public boolean isOpen() {
@@ -36,6 +43,6 @@ public class ShooterGateSubsystem extends SubsystemBase {
     }
 
     public void telemetrize(Telemetry telemetry) {
-        telemetry.addData("Shooter gate open", open);
+        telemetry.addData("Gate", open ? "open" : "closed");
     }
 }
