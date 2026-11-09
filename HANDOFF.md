@@ -42,12 +42,11 @@ Other blockers:
 1. What computers do students have: Windows, Mac or Chromebook? This changes the plan most.
 2. Is it for my team's rookies first, or any FTC team?
 3. Should I try Telemark (https://sharpfacerobotics.github.io/telemark) for 30 minutes first, in case it's enough?
-4. Should the robot CAD meshes go in this public repo? See below.
 The plan's "Decisions for you" table has the rest, with recommended defaults.
 
 ## State I left things in
-- All the robot and sim work is pushed to `robot-rewrite`, **except the robot CAD meshes**.
-- The robot meshes (`sim/web/models/robot/`) are only on the desktop, untracked, because this repo is public. Without them, the sim on another machine won't show the real robot, and I haven't checked how the page behaves when they're missing.
+- All the robot and sim work is pushed to `robot-rewrite`, including the robot CAD meshes (`sim/web/models/robot/`). This repo is public, and I chose to publish them.
+- I'll probably move the sim out of this repo into a separate personal repo later, since it may become a plugin or similar. Don't move anything until I say so. Git history here will still have the old files after a move.
 - The last full test run passed all 43 tests. Only web page changes (sounds, default camera, alliance) came after it.
 - The website (biobuzz.owenrossing.me) runs from the desktop and is down. The gateway exited with code 4, and the log's last entry is 7:37 PM on Nov 8 with no error. It hasn't been restarted. `sim\site.bat` starts it, and that only works on the desktop.
 - `sim/site/` and `sim/matchlogs` are git-ignored and exist only on the desktop.
