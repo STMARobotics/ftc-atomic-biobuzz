@@ -37,6 +37,13 @@ public final class SimMain {
     }
 
     private void run(int port) throws Exception {
+        // started by the website gateway: don't outlive it
+        String parent = System.getenv("SIM_PARENT_PID");
+        if (parent != null) {
+            ProcessHandle.of(Long.parseLong(parent)).ifPresentOrElse(
+                    p -> p.onExit().thenRun(() -> System.exit(0)), () -> System.exit(0));
+        }
+
         engine.start();
 
         // 0.0.0.0 = reachable from other computers on the network, SIM_HOST=localhost keeps it to this PC
@@ -46,6 +53,8 @@ public final class SimMain {
         server.createContext("/events", this::handleEvents);
         server.createContext("/gamepad", this::handleGamepad);
         server.createContext("/cmd", this::handleCommand);
+        server.createContext("/field_colliders.json", ex -> reply(ex, 200, "application/json",
+                SimCollisions.resource("/field_colliders.json").getBytes(StandardCharsets.UTF_8)));
         server.createContext("/", this::handleStatic);
         server.start();
 
@@ -95,7 +104,7 @@ public final class SimMain {
             while (true) {
                 out.write(("data: " + engine.stateJson() + "\n\n").getBytes(StandardCharsets.UTF_8));
                 out.flush();
-                Thread.sleep(33);
+                Thread.sleep(16); // ~60 updates a second, part of the control lag you can feel
             }
         } catch (IOException | InterruptedException ignored) {
             // browser went away
@@ -127,6 +136,21 @@ public final class SimMain {
                 case "stop":
                     engine.stopOpMode();
                     break;
+                case "alliance": {
+                    String side = q.getOrDefault("side", "");
+                    org.firstinspires.ftc.teamcode.util.PoseStorage.pickAlliance(side.isEmpty() ? null
+                            : org.firstinspires.ftc.teamcode.util.Alliance.valueOf(side));
+                    break;
+                }
+                case "settings":
+                    reply(ex, 200, "application/json", SimSettings.json().getBytes(StandardCharsets.UTF_8));
+                    return;
+                case "set":
+                    if (!SimSettings.set(q.getOrDefault("name", ""), Double.parseDouble(q.getOrDefault("value", "")))) {
+                        reply(ex, 400, "text/plain", "no such setting".getBytes(StandardCharsets.UTF_8));
+                        return;
+                    }
+                    break;
                 case "reset":
                     engine.world().physics.resetRobot();
                     break;
@@ -151,7 +175,7 @@ public final class SimMain {
         reply(ex, 200, contentType(file.toString()), Files.readAllBytes(file));
     }
 
-    private static String contentType(String name) {
+    static String contentType(String name) {
         if (name.endsWith(".html")) return "text/html; charset=utf-8";
         if (name.endsWith(".js")) return "text/javascript; charset=utf-8";
         if (name.endsWith(".json")) return "application/json";
@@ -162,7 +186,7 @@ public final class SimMain {
         return "application/octet-stream";
     }
 
-    private static void reply(HttpExchange ex, int code, String type, byte[] body) throws IOException {
+    static void reply(HttpExchange ex, int code, String type, byte[] body) throws IOException {
         if (type != null) ex.getResponseHeaders().add("Content-Type", type);
         ex.getResponseHeaders().add("Cache-Control", "no-store");
         if (body == null) {

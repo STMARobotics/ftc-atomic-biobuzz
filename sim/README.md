@@ -65,7 +65,44 @@ position, a motor's rpm, or the turret angle). Right now they're placeholder box
    and `"rotation"` if the CAD is Z-up (usually `[-90, 0, 0]`).
 4. Refresh the page. No rebuild needed.
 
+## The website
+
+`sim\site.bat` puts it online at https://biobuzz.owenrossing.me while the window is open (Cloudflare
+tunnel `biobuzz-sim` -> `SimGateway` on localhost:8090). Everything is behind an invite code, including
+the CAD models. Codes are in `sim/site/invite_codes.txt` (not in git), one per line: `CODE name`.
+Restart the site after editing them. Each person gets their own sim process, up to 6
+(`SITE_MAX_PLAYERS`). A closed tab's field stops after 3 minutes, or 20 seconds if the site is full.
+
+## Physics
+
+Driving is per-wheel force: motor curve -> traction limit -> mecanum mix (`SimPhysics.stepDrive`). Contacts
+use ode4j at 400 Hz (`SimCollisions`) with field shapes generated from the CAD
+(`sim/cad/field_colliders.py`). Open http://localhost:8080/?colliders to see them over the model.
+The stall, traction, drag and battery numbers are not checked against the real robot yet.
+
+## Game pieces and Hives
+
+The field starts as the manual's section 10.3.1 says, positions from the CAD. Balls are real spheres (`SimCollisions`)
+with air drag. The deployed, running intake picks up what reaches its mouth, up to 4 (G407). Shots leave the barrel
+the passive sorter would use, with speed from flywheel rpm and angle from that barrel's hood. Hives are hinged, hold
+either end (bi-stable, per the manual) and tip when enough weight lands in the upward cell. The panel shows tips
+and balls in cells (20 and 2 points, manual table 10-2).
+
+Guesses to replace with real numbers: `BALL_EXIT_FRACTION` (film one shot), hood angle per servo position,
+ball masses, `BISTABLE_TORQUE` (how many balls it takes to tip). `aShotCanScoreFromSomewhere` is a disabled
+tuning test, re-enable it once the exit speed is measured: shots don't land in a cell yet.
+
 ## Not modeled (yet)
 
-The field elements (seesaw, goal), the Limelight, real ball physics, collisions with anything
-but the walls. Pedro will follow paths better here than on the robot until its constants are tuned.
+Nectar in the alliance areas is staged but can't come in yet (human player).
+The shot table in RobotConstants comes from `gradlew -p sim shotTable`, which fires real shots through the physics and prints lines to paste in. Rerun it when the shot physics change, and replace it with ShotTuner numbers from the real robot.
+
+The Settings button changes the robot code's real constants live in this sim (`SimSettings.java` lists them, add more there). Your browser remembers them. It never changes the real robot, so the page lists what's different to copy into RobotConstants.
+
+Sounds are made in the browser from the state the sim sends (`web/sounds.js`), so there are no audio files. They're off until you turn them on with M or the button. The Musical checkbox picks between sounds in one key on a steady beat, and rougher ones closer to a real robot.
+
+The Alliance menu picks whose tags the turret tracks, same as B (red) or X (blue) on the gamepad during INIT.
+
+The Limelight sees tags but not what's in front of them. Ball spin, nectar unlocking on a tip, the sorter jamming.
+The robot's outline is three boxes and the turret part doesn't rotate.
+Pedro will follow paths better here than on the robot until its constants are tuned.

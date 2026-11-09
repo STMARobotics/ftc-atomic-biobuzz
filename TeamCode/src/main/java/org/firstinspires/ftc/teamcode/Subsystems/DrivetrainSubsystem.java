@@ -58,6 +58,22 @@ public class DrivetrainSubsystem extends SubsystemBase {
     }
 
     /**
+     * Field centric drive with the turn as a real power instead of a stick position, nothing curves it
+     */
+    public void driveWithTurnPower(double forward, double strafe, double turnPower, double speedScale) {
+        double scale = Range.clip(speedScale, 0.0, 1.0);
+        DrivePowers powers = new DrivePowers(curve(forward) * scale, curve(strafe) * scale, turnPower);
+        follower.manual(ManualDrive.fieldCentric(powers, fieldHeading()));
+    }
+
+    /**
+     * Heading relative to field centric forward, radians
+     */
+    public double fieldHeading() {
+        return heading() - driverForwardHeading;
+    }
+
+    /**
      * Robot centric drive. Inputs are curved like drive() (just don't use this).
      * @param forward speed toward the front of the robot in range [-1, 1]
      * @param strafe speed toward the left of the robot in range [-1, 1]

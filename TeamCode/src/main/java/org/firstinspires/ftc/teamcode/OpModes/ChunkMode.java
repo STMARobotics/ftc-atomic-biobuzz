@@ -15,10 +15,11 @@ import org.firstinspires.ftc.teamcode.Commands.DriveCommand;
 import org.firstinspires.ftc.teamcode.Commands.ShootCommand;
 import org.firstinspires.ftc.teamcode.RobotConstants.Drive;
 import org.firstinspires.ftc.teamcode.RobotConstants.Flower;
-import org.firstinspires.ftc.teamcode.RobotConstants.Limelight;
 import org.firstinspires.ftc.teamcode.RobotConstants.Shooter;
 import org.firstinspires.ftc.teamcode.util.Alliance;
 import org.firstinspires.ftc.teamcode.util.PoseStorage;
+import org.firstinspires.ftc.teamcode.util.ShotLookupTable;
+import org.firstinspires.ftc.teamcode.util.ShotSolver;
 
 import java.util.List;
 
@@ -30,10 +31,15 @@ import java.util.List;
  *   right trigger   shoot (hold), gate opens once the flywheel is up to speed, then it feeds
  *   right bumper    gate override toggle (holds the gate open)
  *   X               battle mode: cancels shooting and everything else, fully stows
- *   A               flower toggle (only when Flower.ENABLED)
+ *   A               flower toggle, the intake goes down for it (only when Flower.ENABLED)
  *   dpad up/down    pollen hood +/- 0.02
  *   dpad right/left nectar hood +/- 0.02
  *   start           reset field centric
+ *
+ * The turret tracks our AprilTags by itself, leading the shot while driving (AimCommand, ShotSolver),
+ * and the flywheel and hoods follow the shot table. Dpad nudges are on top of the table.
+ * If it can't see a tag it looks for one on its own (see AimCommand).
+ * During INIT: B picks red, X picks blue, so it only tracks our Hive. It remembers, and auto picks it too.
  *
  * Rumble: one short buzz when the gate opens (shooting), three blips when it thinks it's empty.
  * If auto ran just before, the robot keeps auto's pose and field centric is already set up.
@@ -50,12 +56,14 @@ public class ChunkMode extends RobotOpMode {
 
     private boolean gateOverride = false;
     // without a camera auto aim would block the gate forever
-    private final boolean autoAimEnabled = Limelight.ENABLED;
+    private boolean autoAimEnabled = false;
 
-    // start from the shot table, the dpad nudges them
-    private double pollen = Shooter.SHOT_TABLE.get(Shooter.FIXED_DISTANCE_IN).pollenHood;
-    private double nectar = Shooter.SHOT_TABLE.get(Shooter.FIXED_DISTANCE_IN).nectarHood;
+    // on top of the shot table, from the dpad
+    private double pollenTrim = 0;
+    private double nectarTrim = 0;
 
+    private final ShotSolver solver = new ShotSolver(Shooter.SHOT_TABLE);
+    private AimCommand aimCommand;
     private ShootCommand shootCommand;
     private Command intakeCommand;
     private Command outtakeCommand;
@@ -73,6 +81,8 @@ public class ChunkMode extends RobotOpMode {
     @Override
     protected void setup() {
         gamepad = new GamepadEx(gamepad1);
+        autoAimEnabled = robot.limelight.isPresent(); // no camera, no waiting on one
+        robot.limelight.setAlliance(PoseStorage.pickedAlliance());
 
         // field centric: with a known alliance "forward" is away from our drivers, otherwise it's
         // whichever way the robot faces at init (START on the gamepad re-zeroes it either way)
@@ -85,11 +95,13 @@ public class ChunkMode extends RobotOpMode {
                 () -> -gamepad1.left_stick_y,
                 () -> -gamepad1.left_stick_x,
                 () -> -gamepad1.right_stick_x,
-                () -> Drive.FULL_SPEED_SCALE * robot.driveScale()
+                () -> Drive.FULL_SPEED_SCALE * robot.driveScale(),
+                this::headingBiasAllowed
         ));
 
-        robot.turret.setDefaultCommand(new AimCommand(
-                robot.turret, robot.limelight, () -> autoAimEnabled));
+        aimCommand = new AimCommand(robot.turret, robot.limelight, solver, robot.drive::heading,
+                () -> autoAimEnabled, () -> !robot.gate.isOpen());
+        robot.turret.setDefaultCommand(aimCommand);
 
         // gate: closed unless the override is on, ShootCommand takes it over while shooting
         robot.gate.setDefaultCommand(new RunCommand(() -> {
@@ -97,13 +109,19 @@ public class ChunkMode extends RobotOpMode {
             else robot.gate.close();
         }, robot.gate));
 
-        // hoods go to their defaults on the first loop after START, then hold whatever the dpad set
-        robot.hood.setDefaultCommand(new RunCommand(
-                () -> robot.hood.setPositions(pollen, nectar), robot.hood));
+        // hoods follow the table from the first loop after START. Whole percents only, so camera noise
+        // doesn't have the servos twitching
+        robot.hood.setDefaultCommand(new RunCommand(() -> {
+            ShotLookupTable.Setting shot = Shooter.SHOT_TABLE.get(shotDistance());
+            robot.hood.setPositions(
+                    Math.round((shot.pollenHood + pollenTrim) * 100) / 100.0,
+                    Math.round((shot.nectarHood + nectarTrim) * 100) / 100.0);
+        }, robot.hood));
 
         // Telemetry + driver feedback, every loop
         schedule(new RunCommand(() -> {
             rumbleOnShooterChanges();
+            robot.limelight.setAlliance(PoseStorage.pickedAlliance());
             List<String> faults = robot.faults();
             telemetry.addData("STATUS", faults.isEmpty() ? "OK" : faults.toString());
             telemetry.addData("Shooter", shootCommand.getStatus());
@@ -111,6 +129,9 @@ public class ChunkMode extends RobotOpMode {
             telemetry.addData("Gate override", gateOverride);
             telemetry.addData("Auto aim", autoAimEnabled);
             telemetry.addData("Shot distance (in)", "%.1f", shotDistance());
+            ShotSolver.Aim aim = aimCommand.getAim();
+            telemetry.addData("Robot speed (in/s)", "%.0f", aim != null ? aim.speedInPerSec : 0);
+            telemetry.addData("Turret searching", aimCommand.isSearching());
             robot.telemetrize(telemetry);
             telemetry.update();
         }));
@@ -123,8 +144,11 @@ public class ChunkMode extends RobotOpMode {
         telemetry.addLine(autoPose != null
                 ? String.format("Pose from auto: (%.1f, %.1f) %.0f deg", autoPose.x(), autoPose.y(), Math.toDegrees(autoPose.heading()))
                 : "No auto pose, starting at (0, 0), robot facing = forward");
-        Alliance alliance = PoseStorage.alliance();
-        telemetry.addLine("Alliance: " + (alliance != null ? alliance : "unknown (press START on the gamepad to set forward)"));
+        if (gamepad1.b) PoseStorage.pickAlliance(Alliance.RED);
+        if (gamepad1.x) PoseStorage.pickAlliance(Alliance.BLUE);
+        Alliance picked = PoseStorage.pickedAlliance();
+        robot.limelight.setAlliance(picked);
+        telemetry.addLine("Alliance: " + (picked != null ? picked : "NOT PICKED, tracks any Hive") + " (B red, X blue)");
     }
 
     private void rumbleOnShooterChanges() {
@@ -148,15 +172,14 @@ public class ChunkMode extends RobotOpMode {
                 () -> robot.intake.setOuttaking(true),
                 () -> robot.intake.setOuttaking(false));
 
-        // shoot, waits for the aim unless auto aim is off (then we're aiming by hand)
+        // shoot, waits for the aim unless there's no camera to aim with
         shootCommand = new ShootCommand(
                 robot.shooter,
                 robot.gate,
                 robot.intake,
                 () -> !autoAimEnabled
-                        || (robot.turret.isAtTarget()
-                        && !robot.turret.isUnwinding()
-                        && robot.limelight.hasTarget()),
+                        || !robot.limelight.isAlive()
+                        || (robot.turret.isReadyToShoot() && robot.limelight.hasTarget()),
                 this::shootRpm);
 
         new Trigger(this::intakeHeld).whileActiveOnce(intakeCommand);
@@ -178,13 +201,13 @@ public class ChunkMode extends RobotOpMode {
 
         // hoods, dpad up/down is pollen and right/left is nectar
         gamepad.getGamepadButton(GamepadKeys.Button.DPAD_UP)
-                .whenPressed(() -> pollen = Range.clip(pollen + HOOD_STEP, 0, 1));
+                .whenPressed(() -> pollenTrim = Range.clip(pollenTrim + HOOD_STEP, -1, 1));
         gamepad.getGamepadButton(GamepadKeys.Button.DPAD_DOWN)
-                .whenPressed(() -> pollen = Range.clip(pollen - HOOD_STEP, 0, 1));
+                .whenPressed(() -> pollenTrim = Range.clip(pollenTrim - HOOD_STEP, -1, 1));
         gamepad.getGamepadButton(GamepadKeys.Button.DPAD_RIGHT)
-                .whenPressed(() -> nectar = Range.clip(nectar + HOOD_STEP, 0, 1));
+                .whenPressed(() -> nectarTrim = Range.clip(nectarTrim + HOOD_STEP, -1, 1));
         gamepad.getGamepadButton(GamepadKeys.Button.DPAD_LEFT)
-                .whenPressed(() -> nectar = Range.clip(nectar - HOOD_STEP, 0, 1));
+                .whenPressed(() -> nectarTrim = Range.clip(nectarTrim - HOOD_STEP, -1, 1));
 
         // reset field centric
         gamepad.getGamepadButton(GamepadKeys.Button.START)
@@ -207,6 +230,11 @@ public class ChunkMode extends RobotOpMode {
         return gamepad.getTrigger(GamepadKeys.Trigger.LEFT_TRIGGER) > TRIGGER_THRESHOLD;
     }
 
+    // only for getting around the field: when it's picking up or shooting the driver wants the heading it has
+    private boolean headingBiasAllowed() {
+        return !intakeHeld() && !shootHeld() && !gamepad1.b && !robot.intake.isFlowerWanted();
+    }
+
     private boolean shootHeld() {
         return gamepad.getTrigger(GamepadKeys.Trigger.RIGHT_TRIGGER) > TRIGGER_THRESHOLD;
     }
@@ -215,9 +243,9 @@ public class ChunkMode extends RobotOpMode {
         return Shooter.SHOT_TABLE.get(shotDistance()).rpm;
     }
 
-    // limelight distance if it's on and sees the tag, otherwise the fixed shot
+    // from the aim (it allows for driving), otherwise the fixed shot
     private double shotDistance() {
-        double distance = Limelight.ENABLED ? robot.limelight.getDistance() : Double.NaN;
-        return Double.isNaN(distance) ? Shooter.FIXED_DISTANCE_IN : distance;
+        ShotSolver.Aim aim = aimCommand.getAim();
+        return aim != null ? aim.distanceIn : Shooter.FIXED_DISTANCE_IN;
     }
 }

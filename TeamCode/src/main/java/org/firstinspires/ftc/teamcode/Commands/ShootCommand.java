@@ -19,6 +19,7 @@ import java.util.function.DoubleSupplier;
  *   can't reach speed (low battery, drag): after SPINUP_TIMEOUT_MS it opens at FALLBACK_MIN_FRACTION
  *   no flywheel encoder: full power, opens after BLIND_SPINUP_MS
  *   jam (feeding but no shot for JAM_TIMEOUT_MS): backs the balls out for UNJAM_MS, MAX_UNJAMS tries
+ *   no aim (no tag, camera trouble): shoots wherever it's pointing after AIM_WAIT_MS
  */
 public class ShootCommand extends CommandBase {
 
@@ -74,8 +75,8 @@ public class ShootCommand extends CommandBase {
         }
 
         // once it opens it stays open until we let go, so the rpm dip from each ball doesn't stall feeding
-        if (!gate.isOpen() && aimReady.getAsBoolean()) {
-            double elapsedMs = (now - startNanos) / 1e6;
+        double elapsedMs = (now - startNanos) / 1e6;
+        if (!gate.isOpen() && (aimReady.getAsBoolean() || elapsedMs >= Shooter.AIM_WAIT_MS)) {
             double goal = shooter.getTargetRPM();
             if (!shooter.canMeasureRpm()) {
                 if (elapsedMs >= Shooter.BLIND_SPINUP_MS) open(now, Status.SHOOTING_NO_ENCODER);

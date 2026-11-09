@@ -24,7 +24,7 @@ import java.util.function.DoubleSupplier;
  * instead we watch for things that can't physically happen and shut the turret off (latched until
  * the OpMode restarts) when we see them:
  *   the angle jumps more than the motor could move it in one loop
- *   we're pushing but it isn't moving (dead encoder, jammed, cable caught)
+ *   we're pushing one way the whole time but it stays put (dead encoder, jammed, cable caught)
  */
 public class TurretSubsystem extends SubsystemBase {
 
@@ -38,6 +38,7 @@ public class TurretSubsystem extends SubsystemBase {
     private static final double DIR = Turret.ENCODER_CLOCKWISE_POSITIVE ? 1.0 : -1.0;
 
     private double targetAngle;
+    private double targetRate = 0; // deg/sec the target is moving, from track()
     private boolean unwinding = false;
     private double unwindTarget;
     private double headingAtUnwind;
@@ -47,6 +48,7 @@ public class TurretSubsystem extends SubsystemBase {
     private String fault = null;
     private double lastAngle = Double.NaN;
     private long lastNanos = 0;
+    private double pushDirection = 0;
     private long pushingSinceNanos = 0;
     private double angleWhenPushStarted = 0;
 
@@ -77,7 +79,8 @@ public class TurretSubsystem extends SubsystemBase {
                 unwinding = false;
             }
         }
-        double power = Range.clip(controller.calculate(angle, targetAngle), -Turret.MAX_POWER, Turret.MAX_POWER);
+        double feedforward = unwinding ? 0 : Turret.kV * targetRate;
+        double power = Range.clip(controller.calculate(angle, targetAngle) + feedforward, -Turret.MAX_POWER, Turret.MAX_POWER);
         checkHealth(angle, power);
         setPower(fault == null ? power : 0);
     }
@@ -94,16 +97,16 @@ public class TurretSubsystem extends SubsystemBase {
         lastAngle = angle;
         lastNanos = now;
 
-        if (Math.abs(power) >= Turret.STALL_MIN_POWER) {
-            if (pushingSinceNanos == 0) {
-                pushingSinceNanos = now;
-                angleWhenPushStarted = angle;
-            } else if ((now - pushingSinceNanos) / 1e6 >= Turret.STALL_MS
-                    && Math.abs(angle - angleWhenPushStarted) < Turret.STALL_MIN_TRAVEL_DEG) {
-                fault = "not moving (encoder, jam or cable)";
-            }
-        } else {
-            pushingSinceNanos = 0;
+        // the clock starts over whenever it moves or we push the other way. Just comparing to where it was
+        // 400 ms ago isn't enough: swinging out and whipping back through there looks like it never moved
+        double direction = Math.abs(power) >= Turret.STALL_MIN_POWER ? Math.signum(power) : 0;
+        if (direction == 0 || direction != pushDirection
+                || Math.abs(angle - angleWhenPushStarted) >= Turret.STALL_MIN_TRAVEL_DEG) {
+            pushDirection = direction;
+            pushingSinceNanos = now;
+            angleWhenPushStarted = angle;
+        } else if ((now - pushingSinceNanos) / 1e6 >= Turret.STALL_MS) {
+            fault = "not moving (encoder, jam or cable)";
         }
     }
 
@@ -125,7 +128,32 @@ public class TurretSubsystem extends SubsystemBase {
      */
     public void aimAtAngle(double angleDeg) {
         unwinding = false;
+        targetRate = 0;
         setTarget(angleDeg);
+    }
+
+    /**
+     * Follows a moving target, call it every loop. If it's past a hardstop this unwinds 360 the other
+     * way, and while unwinding it's ignored until we've moved far enough
+     * @param rateDegPerSec how fast desiredDeg is changing
+     */
+    public void track(double desiredDeg, double rateDegPerSec) {
+        if (unwinding) {
+            if (Math.abs(getAngle() - angleAtUnwind) < Turret.UNWIND_MIN_TRAVEL_DEG) return;
+            unwinding = false;
+        }
+
+        double reachable = chooseAngle(desiredDeg);
+        if (Math.abs(reachable - desiredDeg) > 1) {
+            // tag is past a hardstop, whip around to the same direction the other way
+            unwinding = true;
+            unwindTarget = reachable;
+            headingAtUnwind = headingRad.getAsDouble();
+            angleAtUnwind = getAngle();
+        }
+        boolean clamped = reachable <= Turret.MIN_ANGLE_DEG || reachable >= Turret.MAX_ANGLE_DEG;
+        targetRate = clamped ? 0 : rateDegPerSec;
+        setTarget(reachable);
     }
 
     /**
@@ -133,22 +161,21 @@ public class TurretSubsystem extends SubsystemBase {
      * While unwinding it's ignored until we've moved far enough, then we take over from there.
      */
     public void aimAtTag(double xOffsetDeg) {
-        if (unwinding) {
-            if (Math.abs(getAngle() - angleAtUnwind) < Turret.UNWIND_MIN_TRAVEL_DEG) return;
-            unwinding = false;
-        }
+        track(getAngle() + DIR * xOffsetDeg, 0);
+    }
 
-        double desired = getAngle() + DIR * xOffsetDeg;
-        double reachable = chooseAngle(desired);
+    /**
+     * Which way the turret points relative to the robot's front, counterclockwise positive
+     */
+    public double getBearingDeg() {
+        return -DIR * (getAngle() - Turret.FORWARD_ANGLE_DEG);
+    }
 
-        if (Math.abs(reachable - desired) > 1) {
-            // tag is past a hardstop, whip around to the same direction the other way
-            unwinding = true;
-            unwindTarget = reachable;
-            headingAtUnwind = headingRad.getAsDouble();
-            angleAtUnwind = getAngle();
-        }
-        setTarget(reachable);
+    /**
+     * Turns a change in bearing (counterclockwise) into a change in encoder angle
+     */
+    public static double toAngleChange(double bearingChangeDeg) {
+        return -DIR * bearingChangeDeg;
     }
 
     private void setTarget(double angleDeg) {
@@ -193,6 +220,10 @@ public class TurretSubsystem extends SubsystemBase {
 
     public boolean isAtTarget() {
         return Math.abs(targetAngle - getAngle()) <= Turret.TOLERANCE_DEG;
+    }
+
+    public boolean isReadyToShoot() {
+        return !unwinding && Math.abs(targetAngle - getAngle()) <= Turret.SHOOT_TOLERANCE_DEG;
     }
 
     public double getAngle() {

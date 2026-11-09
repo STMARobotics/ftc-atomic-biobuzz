@@ -18,12 +18,14 @@ data = np.load(cache, allow_pickle=True)
 names, colors, verts, faces = data["names"], data["colors"], data["verts"], data["faces"]
 
 def color_for(name, rgba):
+    leaf = name.rsplit("/", 1)[-1].lower()
+    # clear stuff first: the CAD gives these an opaque color. The Hive skins are the polycarb
+    if "glass" in leaf or "polycarb" in leaf or " skin" in leaf:
+        return (200, 225, 240, 70)
     r, g, b, a = (int(c) for c in rgba)
     if (r, g, b) != (0, 0, 0):
         return (r, g, b, a or 255)
     n = name.lower()
-    if "glass" in n or "polycarb" in n:
-        return (190, 215, 235, 70)
     if "april tag" in n:
         return (235, 235, 235, 255)
     if "red" in n:
@@ -66,7 +68,11 @@ for hive in ("red_hive", "blue_hive"):
     scene.graph.update(frame_from=scene.graph.base_frame, frame_to=hive, matrix=np.eye(4))
 counts = collections.Counter()
 for i, ((kind, color), (vs, fs)) in enumerate(groups.items()):
-    mesh = trimesh.Trimesh(np.vstack(vs).astype(np.float64), np.vstack(fs), process=False)
+    # field_export.py ... --keep 0.15 makes the low detail version (needs fast-simplification)
+    keep = float(sys.argv[sys.argv.index("--keep") + 1]) if "--keep" in sys.argv else 1.0
+    mesh = trimesh.Trimesh(np.vstack(vs).astype(np.float64), np.vstack(fs), process=keep < 1)
+    if keep < 1 and len(mesh.faces) > 500:
+        mesh = mesh.simplify_quadric_decimation(face_count=max(200, int(len(mesh.faces) * keep)))
     material = PBRMaterial(baseColorFactor=list(color), metallicFactor=0.1, roughnessFactor=0.75,
                            alphaMode="BLEND" if color[3] < 255 else "OPAQUE", doubleSided=True)
     mesh.visual = trimesh.visual.TextureVisuals(material=material)

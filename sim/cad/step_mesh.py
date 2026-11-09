@@ -91,18 +91,24 @@ to_m = 0.001 if max(x1 - x0, z1 - z0) > 100 else 1.0
 log(f"extent {x1 - x0:.1f} x {y1 - y0:.1f} x {z1 - z0:.1f} (scale to meters {to_m})")
 
 names_out, colors_out, verts_out, faces_out = [], [], [], []
+pieces = []
 tri_total = 0
 skipped = 0
 for path, shape, color in leaves:
     low = path.lower()
+    leaf = low.rsplit("/", 1)[-1]  # only judge a part by its own name: its assembly can be "Riveted FTC Panel"
     box = Bnd_Box()
     BRepBndLib.Add_s(shape, box)
     if box.IsVoid():
         continue
     bx0, by0, bz0, bx1, by1, bz1 = corners(box)
     diag = ((bx1 - bx0) ** 2 + (by1 - by0) ** 2 + (bz1 - bz0) ** 2) ** 0.5 * to_m
-    if (diag < 0.02 or "soft tiles" in low or "rivet" in low or "sticker" in low or "screw" in low
-            or low.endswith(": pollen") or "nectar" in low.rsplit("/", 1)[-1] or "quick release pin" in low):
+    # remember where the game pieces start, they aren't meshed (the sim draws its own)
+    if leaf.endswith(": pollen") or "nectar" in leaf:
+        pieces.append({"name": leaf, "lo": [bx0 * to_m, by0 * to_m, bz0 * to_m], "hi": [bx1 * to_m, by1 * to_m, bz1 * to_m]})
+    is_rivet = "rivet" in leaf and "rail" not in leaf and "panel" not in leaf
+    if (diag < 0.02 or "soft tiles" in leaf or is_rivet or "sticker" in leaf or "screw" in leaf
+            or leaf.endswith(": pollen") or "nectar" in leaf or "quick release pin" in leaf):
         skipped += 1
         continue
     BRepMesh_IncrementalMesh(shape, 12.0 / to_m * 0.001, False, 0.9, True)  # ~12 mm, 0.9 rad: plenty for a viewer
@@ -139,4 +145,6 @@ log(f"meshed {len(names_out)} parts ({skipped} skipped), {tri_total} triangles")
 
 np.savez_compressed(out, names=np.array(names_out, dtype=object), colors=np.array(colors_out),
                     verts=np.array(verts_out, dtype=object), faces=np.array(faces_out, dtype=object))
-log(f"cached {out}")
+import json
+json.dump(pieces, open(str(out) + ".pieces.json", "w"))
+log(f"cached {out}, {len(pieces)} game pieces")

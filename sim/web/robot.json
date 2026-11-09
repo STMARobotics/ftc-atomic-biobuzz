@@ -1,68 +1,73 @@
 {
   "_help": [
-    "Every moving part of the robot and what drives it. All numbers are inches in the ROBOT frame:",
-    "+x forward, +y up (0 = floor), +z right, origin = robot center on the floor.",
-    "Placeholder parts use 'box' [sx,sy,sz] or 'cylinder' {radius,width} centered at 'center'.",
-    "To use CAD: export a part as .glb in robot-frame coordinates (same origin for every part),",
-    "drop it in web/models/ and set 'file'. 'scale' converts its units (meters -> inches = 39.37),",
-    "'rotation' [x,y,z] degrees fixes CAD axes (Z-up CAD exports usually need [-90,0,0]).",
-    "'pivot' + 'axis' is the hinge. 'parent' makes a part ride on another (flywheels on the turret).",
-    "Drivers: servo (angle at position 0 and 1), spin (motor rpm x scale), turret (sim turret angle)."
+    "Every moving part of the real robot and what drives it. All numbers are inches in the ROBOT",
+    "frame: +x forward, +y up (0 = floor), +z right, origin = robot center on the floor.",
+    "The GLBs in models/robot come from the CAD STEP (sim/cad/robot_mesh.py + robot_export.py),",
+    "already in this frame, so they need no scale or rotation.",
+    "'pivot' + 'axis' is the hinge, measured from round holes and shafts in the CAD. 'parent' makes",
+    "a part ride on another. Drivers: servo (angle at position 0 and 1, degrees from the CAD pose),",
+    "spin (motor rpm x scale), turret (sim turret angle).",
+    "TUNE = the hinge is measured but the travel/direction is a guess, check against the robot."
   ],
   "parts": [
-    { "name": "chassis", "center": [0, 3, 0], "box": [17, 3.5, 16], "color": "#2f5d8a" },
-    { "name": "wheelFL", "center": [6.5, 2.05, -7.6], "cylinder": { "radius": 2.05, "width": 1.5 }, "color": "#222222" },
-    { "name": "wheelFR", "center": [6.5, 2.05, 7.6], "cylinder": { "radius": 2.05, "width": 1.5 }, "color": "#222222" },
-    { "name": "wheelBL", "center": [-6.5, 2.05, -7.6], "cylinder": { "radius": 2.05, "width": 1.5 }, "color": "#222222" },
-    { "name": "wheelBR", "center": [-6.5, 2.05, 7.6], "cylinder": { "radius": 2.05, "width": 1.5 }, "color": "#222222" },
-    { "name": "indexer", "center": [-1, 8, 0], "box": [5, 8, 4.5], "color": "#566270", "opacity": 0.55 },
+    { "name": "chassis", "file": "robot/chassis.glb" },
+
+    { "name": "wheelFL", "file": "robot/wheelFL.glb", "pivot": [4.88, 2.0, -6.9], "axis": [0, 0, 1],
+      "driver": { "type": "spin", "motor": "frontLeft", "scale": -1 } },
+    { "name": "wheelFR", "file": "robot/wheelFR.glb", "pivot": [4.88, 2.0, 6.9], "axis": [0, 0, 1],
+      "driver": { "type": "spin", "motor": "frontRight", "scale": -1 } },
+    { "name": "wheelBL", "file": "robot/wheelBL.glb", "pivot": [-4.88, 2.0, -6.9], "axis": [0, 0, 1],
+      "driver": { "type": "spin", "motor": "backLeft", "scale": -1 } },
+    { "name": "wheelBR", "file": "robot/wheelBR.glb", "pivot": [-4.88, 2.0, 6.9], "axis": [0, 0, 1],
+      "driver": { "type": "spin", "motor": "backRight", "scale": -1 } },
 
     {
-      "name": "turret", "pivot": [-1, 12, 0], "axis": [0, 1, 0],
-      "driver": { "type": "turret", "forwardDeg": 270, "clockwisePositive": true },
-      "center": [-1, 13, 0], "box": [8, 2, 8], "color": "#8a8f98"
+      "name": "turret", "file": "robot/turret.glb", "pivot": [-1.85, 10.5, 0], "axis": [0, 1, 0],
+      "_note": "the CAD has the shooter rotated, angleAtForward swings it to face +x when the encoder says forward",
+      "driver": { "type": "turret", "forwardDeg": 270, "clockwisePositive": true, "angleAtForward": -126.87 }
     },
     {
-      "name": "pollenFlywheel", "parent": "turret", "pivot": [1, 15.5, -2.3], "axis": [0, 0, 1],
-      "driver": { "type": "spin", "motor": "flywheelMotor", "scale": 0.5 },
-      "center": [1, 15.5, -2.3], "cylinder": { "radius": 1.5, "width": 1.0 }, "color": "#e0b422"
+      "name": "flywheels", "file": "robot/flywheels.glb", "parent": "turret",
+      "pivot": [0.42, 16.37, 0.7], "axis": [0.8, 0, -0.6],
+      "_note": "one shaft, 16t motor pulley to 24t = 0.667",
+      "driver": { "type": "spin", "motor": "flywheelMotor", "scale": 0.667 }
     },
     {
-      "name": "nectarFlywheel", "parent": "turret", "pivot": [1, 15.5, 2.3], "axis": [0, 0, 1],
-      "driver": { "type": "spin", "motor": "flywheelMotor", "scale": 0.5 },
-      "center": [1, 15.5, 2.3], "cylinder": { "radius": 1.5, "width": 1.0 }, "color": "#d9772b"
+      "name": "pollenHood", "file": "robot/pollenHood.glb", "parent": "turret",
+      "pivot": [-2.58, 13.89, -4.69], "axis": [0.8, 0, -0.6],
+      "_note": "TUNE travel and direction: 15 deg total for the 65-80 deg shot range",
+      "driver": { "type": "servo", "servo": "pollenHoodServo", "angleAt0": -7.5, "angleAt1": 7.5 }
     },
     {
-      "name": "pollenHood", "parent": "turret", "pivot": [2.6, 17.2, -2.3], "axis": [0, 0, 1],
-      "driver": { "type": "servo", "servo": "pollenHoodServo", "angleAt0": -15, "angleAt1": 15 },
-      "center": [4.2, 17.2, -2.3], "box": [3.2, 0.3, 1.4], "color": "#c9ccd1"
+      "name": "nectarHood", "file": "robot/nectarHood.glb", "parent": "turret",
+      "pivot": [-5.82, 13.89, -2.29], "axis": [0.8, 0, -0.6],
+      "_note": "TUNE travel and direction",
+      "driver": { "type": "servo", "servo": "nectarHoodServo", "angleAt0": -7.5, "angleAt1": 7.5 }
     },
     {
-      "name": "nectarHood", "parent": "turret", "pivot": [2.6, 17.2, 2.3], "axis": [0, 0, 1],
-      "driver": { "type": "servo", "servo": "nectarHoodServo", "angleAt0": -15, "angleAt1": 15 },
-      "center": [4.2, 17.2, 2.3], "box": [3.2, 0.3, 1.4], "color": "#c9ccd1"
+      "name": "gate", "file": "robot/gate.glb", "pivot": [-3.6, 4.05, 0], "axis": [0, 0, 1],
+      "_note": "hinge is the Mini Axon spline. TUNE: assumes the CAD pose is closed, open travel is a guess",
+      "driver": { "type": "servo", "servo": "gateServo", "angleAt0": 35, "angleAt1": 0 }
     },
     {
-      "name": "gate", "pivot": [-1, 11.8, -2.2], "axis": [1, 0, 0],
-      "driver": { "type": "servo", "servo": "gateServo", "angleAt0": 80, "angleAt1": 0 },
-      "center": [-1, 11.8, 0], "box": [4, 0.4, 4.4], "color": "#d64545"
+      "name": "intake", "file": "robot/intake.glb", "pivot": [6.14, 7.05, 0], "axis": [0, 0, 1],
+      "_note": "TUNE: assumes the CAD pose is deployed (position 0), stowed travel is a guess",
+      "driver": { "type": "servo", "servo": "pivotServo", "angleAt0": 0, "angleAt1": 100 }
     },
     {
-      "name": "intake", "pivot": [8.5, 4.5, 0], "axis": [0, 0, 1],
-      "driver": { "type": "servo", "servo": "pivotServo", "angleAt0": -30, "angleAt1": 80 },
-      "center": [12.5, 4.5, 0], "box": [8, 1, 14], "color": "#4e7d4e"
+      "name": "intakeRoller", "file": "robot/intakeRoller.glb", "parent": "intake",
+      "pivot": [9.61, 4.79, 0], "axis": [0, 0, 1],
+      "driver": { "type": "spin", "motor": "intakeMotorRight", "scale": -2.0 }
     },
     {
-      "name": "intakeRoller", "parent": "intake", "pivot": [16.2, 4.5, 0], "axis": [0, 0, 1],
-      "driver": { "type": "spin", "motor": "intakeMotorRight", "scale": -2.0 },
-      "center": [16.2, 4.5, 0], "cylinder": { "radius": 1.3, "width": 13 }, "color": "#e07b39"
-    },
-    {
-      "name": "flower", "pivot": [8.5, 7, 0], "axis": [0, 0, 1],
-      "driver": { "type": "servo", "servo": "flowerServo", "angleAt0": 90, "angleAt1": -10 },
-      "center": [12, 7, 0], "box": [7, 0.6, 10], "color": "#c46aa8"
+      "name": "flower", "file": "robot/flower.glb", "pivot": [6.28, 5.05, 0], "axis": [0, 0, 1],
+      "_note": "the CAD pose is stowed (position 0). -102.5 deg puts the lowest point of the mesh on the floor, 14.9 in ahead of center",
+      "driver": { "type": "servo", "servo": "flowerServo", "angleAt0": 0, "angleAt1": -102.5 }
     }
   ],
-  "ballStack": { "bottom": [-1, 5.5, 0], "spacing": 3.0, "radius": 1.4, "color": "#ffd23f" },
-  "launcher": { "point": [3, 17.5, 0], "elevationDeg": 72, "inPerSecAtTarget": 230, "targetRpm": 3700 }
+  "ballStack": { "bottom": [3, 3.6, 0], "spacing": [-2.0, 0.6, 0], "radius": 1.4, "color": "#ffd23f" },
+  "launcher": {
+    "point": [-2.36, 17.37, -0.97], "direction": [-0.6, 0, -0.8],
+    "elevationDeg": 72, "inPerSecAtTarget": 230, "targetRpm": 3700
+  }
 }

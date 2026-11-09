@@ -84,3 +84,6 @@ __pycache__/
 
 # sim match logs (the robot writes its own to /sdcard/FIRST/matchlogs)
 sim/matchlogs/
+
+# invite codes and per-player logs for the sim website, never commit these
+sim/site/

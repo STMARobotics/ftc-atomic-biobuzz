@@ -21,6 +21,8 @@ def androidJar = file("${sdkDir}/platforms/android-34/android.jar")
 configurations {
     // Android libraries ship as .aar, we pull classes.jar out of each one
     aar { transitive = false }
+    // android.jar's org.json is all stubs that throw, LLResult needs a real one ahead of it at runtime
+    realJson
 }
 
 def aarJarsDir = layout.buildDirectory.dir('aar-jars')
@@ -58,7 +60,9 @@ dependencies {
     implementation 'com.pedropathing:core:3.0.1'
     implementation 'org.jetbrains.kotlin:kotlin-stdlib:2.3.21'
     implementation 'org.ejml:ejml-simple:0.39'
+    implementation 'org.ode4j:core:0.5.4' // physics: collisions, balls, the Hive hinges
 
+    realJson 'org.json:json:20240303'
     implementation fileTree(aarJarsDir) { include '*.jar' }.builtBy('extractAars')
     implementation files(androidJar)
 
@@ -70,7 +74,12 @@ dependencies {
 tasks.named('test', Test) {
     useJUnitPlatform()
     workingDir = projectDir
+    // they run in real time and mostly wait, so a JVM per class side by side is nearly free. Each gets its own
+    // so the robot code's static state can't leak between them. Half the CPU, they're timing sensitive
+    forkEvery = 1
+    maxParallelForks = Math.max(1, Math.min(9, (int) (Runtime.runtime.availableProcessors() / 2)))
     testLogging {
+        showStandardStreams = true
         events 'passed', 'failed', 'skipped'
         exceptionFormat = 'full'
     }
@@ -85,6 +94,10 @@ sourceSets {
             exclude 'org/firstinspires/ftc/teamcode/pedro/Tuning.java'
             exclude 'org/firstinspires/ftc/teamcode/pedro/procedures/**'
         }
+        runtimeClasspath = configurations.realJson + runtimeClasspath
+    }
+    test {
+        runtimeClasspath = configurations.realJson + runtimeClasspath
     }
 }
 
@@ -95,6 +108,21 @@ tasks.withType(JavaCompile).configureEach {
 
 application {
     mainClass = 'sim.SimMain'
+}
+
+// .\gradlew -p sim site   the invite code website, see site.bat
+tasks.register('site', JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'sim.SimGateway'
+    workingDir = projectDir
+    standardInput = System.in
+}
+
+// .\gradlew -p sim shotTable   works out Shooter.SHOT_TABLE by firing shots in the physics
+tasks.register('shotTable', JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'sim.ShotTableSweep'
+    workingDir = projectDir
 }
 
 tasks.named('run', JavaExec) {

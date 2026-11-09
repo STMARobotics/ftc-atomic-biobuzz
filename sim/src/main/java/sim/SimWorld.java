@@ -99,6 +99,9 @@ public final class SimWorld {
         if (SparkFunOTOS.class.isAssignableFrom(type)) return otos;
         if (type == AnalogInput.class) return turretEncoder;
         if (VoltageSensor.class.isAssignableFrom(type)) return batterySensor;
+        if (com.qualcomm.hardware.limelightvision.Limelight3A.class.isAssignableFrom(type)) {
+            return new SimLimelight(physics);
+        }
         warn("The sim has no fake for " + type.getSimpleName() + " \"" + name + "\"");
         return null;
     }

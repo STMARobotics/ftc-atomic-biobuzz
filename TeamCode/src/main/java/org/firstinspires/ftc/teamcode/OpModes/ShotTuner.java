@@ -135,7 +135,8 @@ public class ShotTuner extends LinearOpMode {
             robot.hood.telemetrize(telemetry);
             intake.telemetrize(telemetry);
             telemetry.addLine();
-            telemetry.addLine(String.format(".add(%.0f, %.0f, %.2f, %.2f)", distance, rpm, pollen, nectar));
+            telemetry.addLine(String.format(".add(%.0f, %.0f, %.2f, %.2f, %.2f)", distance, rpm, pollen, nectar,
+                    org.firstinspires.ftc.teamcode.RobotConstants.Shooter.SHOT_TABLE.get(distance).flightSec)); // time a real shot if you can
             telemetry.update();
         }
 

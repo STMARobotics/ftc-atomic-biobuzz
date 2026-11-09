@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode;
 import org.firstinspires.ftc.teamcode.util.ShotLookupTable;
 
 // angles in degrees, TUNE = needs to be measured on the robot
+// Anything here that isn't final can be changed live on the sim's settings page
 public final class RobotConstants {
 
     private RobotConstants() {}
@@ -46,14 +47,22 @@ public final class RobotConstants {
     }
 
     public static final class Limelight {
-        public static final boolean ENABLED = false; // no camera on the robot yet, flip to true once it's wired
+        public static final boolean ENABLED = true; // missing from the config just turns auto aim off
         public static final int TAG_PIPELINE = 0; // TUNE
         public static final double MAX_STALENESS_MS = 100;
+        public static final double ALIVE_STALENESS_MS = 500;
 
-        // for working out distance from ty, all placeholders, TUNE
-        public static final double CAMERA_HEIGHT_IN = 12.0;
+        // for working out distance from ty. Heights from the CAD (tag on an upward cell, Limelight on the
+        // turret). The tilt is a guess, TUNE: it should be measured
+        public static final double CAMERA_HEIGHT_IN = 12.3;
         public static final double CAMERA_ANGLE_DEG = 25.0;
-        public static final double TAG_HEIGHT_IN = 29.5;
+        public static final double TAG_HEIGHT_IN = 49.7;
+        // the distance math assumes a raised cell's tag, so a Hive's lowered cell reads much too far away.
+        // Its direction is still good though, turning toward it is often how the raised cell comes into view.
+        // So distances stop here, past the end of the shot table anyway
+        public static final double MAX_TARGET_DISTANCE_IN = 100;
+        // how far the camera is out in front of the turret's axis, from the CAD
+        public static final double CAMERA_FORWARD_IN = 6.2;
 
         // the tag is hidden when the seesaw is tipped toward us (can't score then).
         // it has to be seen this long in a row before we trust that we can score
@@ -75,6 +84,9 @@ public final class RobotConstants {
         // motor rpm, not wheel rpm. has to be below what it can actually reach (~4000) or there's
         // no power left to recover after each ball. TUNE, and retune the hoods if you change it
         public static final double SHOOT_RPM = 3700;
+        // waiting for the turret to be on a tag, then shoot anyway: a camera that can't see tags shouldn't cost
+        // the match. Long enough for it to finish looking, a sweep can take over 3 s. A dead camera doesn't wait
+        public static double AIM_WAIT_MS = 5000; // TUNE
         // gate opens once the flywheel is this close to the target
         public static final double GATE_OPEN_MARGIN_RPM = 150;
 
@@ -97,19 +109,52 @@ public final class RobotConstants {
         public static final double UNJAM_MS = 250; // TUNE
         public static final int MAX_UNJAMS = 2;
 
-        // distance to the goal (in) -> flywheel rpm, pollen hood, nectar hood
-        // TUNE (add a point every time you test a shot)
+        // distance from the camera to the tag (in) -> flywheel rpm, pollen hood, nectar hood, flight time (sec)
+        // From the sim's physics (gradlew -p sim shotTable), so it's only as true as the sim's guesses.
+        // TUNE: replace these with real shots in ShotTuner. Past either end it uses the end point
         public static final ShotLookupTable SHOT_TABLE = new ShotLookupTable()
-                .add(24, SHOOT_RPM, 0.68, 0.5);
+                .add(24, 3100, 0.80, 0.90, 0.66)
+                .add(30, 3100, 0.60, 0.70, 0.66)
+                .add(36, 3100, 0.40, 0.40, 0.62)
+                .add(42, 3100, 0.30, 0.30, 0.60)
+                .add(48, 3100, 0.20, 0.20, 0.56)
+                .add(54, 3300, 0.00, 0.20, 0.80)
+                .add(60, 3300, 0.10, 0.20, 0.68) // from here on only some angles go in
+                .add(66, 3400, 0.10, 0.20, 0.72)
+                .add(72, 3500, 0.10, 0.10, 0.76)
+                .add(80, 3600, 0.00, 0.10, 0.80);
 
-        // with the limelight off every shot uses the table at this distance, so it's one fixed shot
-        public static final double FIXED_DISTANCE_IN = 24; // TUNE
+        // no tag in view: every shot uses the table at this distance. The camera can't see the tag from
+        // up close, so close is the likely reason
+        public static final double FIXED_DISTANCE_IN = 30; // TUNE
+
+        // shooting on the move (see ShotSolver). Not final so the sim can compare with it off, false just
+        // points at the target
+        public static boolean LEAD_SHOTS = true;
+        // the camera turns with the turret, so too much lead puts the tags out of frame and we'd lose the
+        // target. Past this the shot misses instead. Half the 3A's view plus a bit, since a tag past the
+        // middle of the sticker is still in frame
+        public static double MAX_LEAD_DEG = 28;
+        // slower than this counts as standing still, so camera noise doesn't wiggle the aim
+        public static double MIN_LEAD_SPEED_IN_PER_SEC = 4; // TUNE
+        public static final double MAX_ROBOT_SPEED_IN_PER_SEC = 80; // nothing past this is real
+        // gate open to the ball leaving, on top of the table's flight time
+        public static final double FEED_DELAY_SEC = 0.05; // TUNE
+        // no new frame for this long and we stop trusting the old one
+        public static final double AIM_COAST_SEC = 0.3;
+        // a frame this far from what we expected means something changed, start tracking over
+        public static final double AIM_JUMP_IN = 15;
+        // how much of each frame's surprise goes into position and velocity. More is faster and noisier, TUNE
+        public static final double AIM_FILTER_POSITION = 0.45;
+        public static final double AIM_FILTER_VELOCITY = 0.12;
 
         private Shooter() {}
     }
 
     public static final class Turret {
-        public static final boolean ENABLED = false; // yaw encoder isn't plugged in, motor stays at 0 until this is true
+        // false keeps the motor at 0. Turn this off if the turret isn't wired at a comp: it can shut
+        // itself off on a dead encoder (see TurretSubsystem) but it can't know a chain isn't installed
+        public static final boolean ENABLED = true;
 
         // gear stack: 0V is 0 deg and about 3.3V is about 540 deg, TUNE both
         public static final double ENCODER_MAX_VOLTS = 3.3;
@@ -124,11 +169,27 @@ public final class RobotConstants {
         // true if the encoder angle goes up when the turret turns clockwise (seen from above)
         public static final boolean ENCODER_CLOCKWISE_POSITIVE = true; // TUNE
 
-        public static final double kP = 0.0; // TUNE
+        public static final double kP = 0.02; // TUNE on the robot, 30 deg off = full MAX_POWER. From the sim
         public static final double kI = 0.0;
         public static final double kD = 0.0;
+        // power per deg/sec the target is moving, so it keeps up instead of trailing behind
+        public static final double kV = 1.0 / 470; // TUNE, from the top speed below
+        public static final double RATE_FILTER_SEC = 0.08;
+
+        // no tag: wait a moment in case it's a blip, then sweep around where it was, wider each pass
+        public static boolean SEARCH_FOR_TAGS = true;
+        public static double SEARCH_AFTER_SEC = 0.75; // TUNE
+        // the camera has to be able to read a tag going past, too fast and it blurs. TUNE on the robot
+        public static double SEARCH_DEG_PER_SEC = 150;
+        // close by first, the tag's rarely behind us. With the camera's view that's most of the way around in
+        // about 1.5 s. Going all the way around first can mean a 3 s trip the wrong way
+        public static final double SEARCH_FIRST_SWEEP_DEG = 75;
+        public static final double SEARCH_WIDER_DEG = 105;
 
         public static final double TOLERANCE_DEG = 1.5;
+        // close enough to start shooting. A cell is about +-10 deg wide from normal range, and a target that's
+        // moving (shooting on the move) can sit a couple of degrees behind forever. TUNE
+        public static double SHOOT_TOLERANCE_DEG = 4;
         public static final double MAX_POWER = 0.6;
 
         // how fast the manual turret buttons move it
@@ -161,7 +222,7 @@ public final class RobotConstants {
     }
 
     public static final class Flower {
-        public static final boolean ENABLED = false; // off for now, A does nothing
+        public static final boolean ENABLED = true; // false and A does nothing, the servo holds stowed
 
         // servo positions, TUNE
         public static final double STOWED = 0.0;
@@ -200,7 +261,18 @@ public final class RobotConstants {
 
         // sticks get raised to this power: 2 = half stick is quarter speed (fine control),
         // 1 = linear (snappier). TUNE with the driver
-        public static final double STICK_EXPONENT = 2.0;
+        public static double STICK_EXPONENT = 2.0;
+
+        // mecanum is fastest square to the way it's going, so when just driving around it eases to the nearest
+        // 90 from field centric forward. Not while rotating by hand, intaking or shooting (see DriveCommand)
+        public static boolean HEADING_BIAS = true;
+        public static double BIAS_MIN_STICK = 0.6; // only when really going somewhere
+        public static double BIAS_DELAY_SEC = 0.4; // after letting go of the turn stick
+        // from the sim: square from 47 deg in 0.5 s, and past 0.7 turn power it doesn't get across the field any
+        // sooner since turning takes speed from driving. TUNE with the driver
+        public static double BIAS_kP = 0.05; // turn power per deg off
+        public static double BIAS_MAX_TURN = 0.7;
+        public static double BIAS_TOLERANCE_DEG = 1;
 
         private Drive() {}
     }

@@ -17,3 +17,18 @@ cadenv\Scripts\python field_export.py field_mesh.npz ..\web\models\field.glb ..\
   their own nodes (`red_hive`, `blue_hive`) so they can tilt, plus `field_info.json` with the
   hive axle and the 4 goal AprilTag positions (meters, CAD frame: Y up, origin field center).
 - gmsh was tried first and crashes on this field's CAD, don't bother.
+
+## The robot
+
+Export the assembly from Onshape as one STEP file (not per-part files, those lose the placement).
+
+```
+cadenv\Scripts\python -m pip install fast-simplification
+cadenv\Scripts\python robot_mesh.py "Main Assembly.step" robot_tree.json robot_mesh.npz
+cadenv\Scripts\python robot_export.py robot_tree.json robot_mesh.npz ..\web\models\robot --write
+```
+
+`robot_mesh.py` caches every part's path, placement and round-hole axes (that's how the hinges in
+`sim/web/robot.json` were measured). `robot_export.py` sorts parts into moving groups by assembly
+path (`classify()`) and writes them in the robot frame. If the CAD changes, re-run both; hinges in
+robot.json only need updating if the mechanism moved.

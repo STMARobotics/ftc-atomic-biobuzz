@@ -252,6 +252,8 @@ public final class SimEngine {
         j.field("opmode", opModeName);
         j.field("autonomous", world.autonomous);
         j.field("error", errorText);
+        org.firstinspires.ftc.teamcode.util.Alliance picked = org.firstinspires.ftc.teamcode.util.PoseStorage.pickedAlliance();
+        j.field("alliance", picked != null ? picked.name() : "");
         j.key("robot").begin()
                 .field("x", p.x).field("y", p.y).field("h", p.heading)
                 .field("vForward", p.vForward).field("vLeft", p.vLeft).field("vTurn", p.vTurn)
@@ -264,6 +266,13 @@ public final class SimEngine {
         j.field("balls", p.balls);
         j.field("shots", p.shotsLaunched);
         j.field("jammed", p.jammed);
+        j.numberArray("pieces", p.collisions.pieces()); // type, x, y, z in inches, repeating
+        j.key("hives").begin()
+                .field("redAngle", p.collisions.redHive.angle).field("redTips", p.collisions.redHive.tips)
+                .field("redInCell", p.collisions.redHive.inCell)
+                .field("blueAngle", p.collisions.blueHive.angle).field("blueTips", p.collisions.blueHive.tips)
+                .field("blueInCell", p.collisions.blueHive.inCell)
+                .end();
         j.key("servos").begin();
         for (SimServo s : world.servos()) {
             j.key(s.name).begin().field("cmd", s.commanded).field("pos", s.physical).end();

@@ -13,13 +13,17 @@ public final class PoseStorage {
 
     private static Pose pose = null;
     private static Alliance alliance = null;
+    private static Alliance pickedAlliance = null;
     private static long savedAtNanos = 0;
 
     private PoseStorage() {}
 
     public static synchronized void save(Pose newPose, Alliance newAlliance) {
         pose = newPose;
-        if (newAlliance != null) alliance = newAlliance;
+        if (newAlliance != null) {
+            alliance = newAlliance;
+            pickedAlliance = newAlliance;
+        }
         savedAtNanos = System.nanoTime();
     }
 
@@ -39,7 +43,24 @@ public final class PoseStorage {
         return alliance;
     }
 
+    /**
+     * Whose tags to track, picked by hand. Separate from alliance(): that also sets field centric's
+     * forward, and without auto there's no heading to go on. It lasts until the app restarts or an auto
+     * picks, so check it on the INIT screen every match
+     */
+    public static synchronized void pickAlliance(Alliance picked) {
+        pickedAlliance = picked;
+    }
+
+    /**
+     * Whose tags to track, null if nobody has said
+     */
+    public static synchronized Alliance pickedAlliance() {
+        return pickedAlliance;
+    }
+
     public static synchronized void clear() {
+        pickedAlliance = null;
         pose = null;
         alliance = null;
         savedAtNanos = 0;
